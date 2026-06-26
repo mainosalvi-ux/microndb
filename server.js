@@ -53,13 +53,24 @@ app.use(session({
 
 app.use(express.static(path.join(__dirname, 'public')));
 
+// --- SECCIÓN DE RUTAS CORREGIDA ---
 const { router: authRouter, seedAdmin } = require('./routes/auth');
 app.use('/api/auth/login', loginLimiter);
 app.use('/api/auth', authRouter);
-app.use('/api/admin', apiLimiter, require('./routes/admin'));
-app.use('/api/records', apiLimiter, require('./routes/records'));
-app.use('/api/documents', apiLimiter, require('./routes/documents'));
-app.use('/api/join', joinLimiter, require('./routes/join'));
+
+// Importaciones inteligentes para evitar colapsos por enrutadores indefinidos
+const adminModule = require('./routes/admin');
+app.use('/api/admin', apiLimiter, adminModule.router || adminModule);
+
+const recordsModule = require('./routes/records');
+app.use('/api/records', apiLimiter, recordsModule.router || recordsModule);
+
+const docsModule = require('./routes/documents');
+app.use('/api/documents', apiLimiter, docsModule.router || docsModule);
+
+const joinModule = require('./routes/join');
+app.use('/api/join', joinLimiter, joinModule.router || joinModule);
+// ----------------------------------
 
 app.get('/join/:token', (req, res) => res.sendFile(path.join(__dirname, 'public', 'join.html')));
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
