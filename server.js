@@ -6,6 +6,11 @@ const rateLimit = require('express-rate-limit');
 const path = require('path');
 
 const app = express();
+const app = express();
+
+
+app.set('trust proxy', 1); 
+
 const PORT = process.env.PORT || 3000;
 const SESSION_SECRET = process.env.SESSION_SECRET || 'micronation-dev-secret-change-in-prod';
 
