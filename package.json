@@ -15,7 +15,7 @@
     "express-session": "^1.17.3",
     "helmet": "^7.1.0",
     "multer": "*",
-    "pg": "*",
+    "pg": "^8.22.0",
     "uuid": "^9.0.0"
   },
   "devDependencies": {

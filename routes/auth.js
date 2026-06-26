@@ -1,89 +1,60 @@
 const express = require('express');
 const router = express.Router();
-const bcrypt = require('bcryptjs');
-const { v4: uuidv4 } = require('uuid');
-const { query } = require('../db');
+const bcrypt = require('bcrypt');
+const pool = require('../db'); // Conexión a Supabase
 
-const ADMIN_EMAIL = 'mainosalvi@gmail.com';
-const ADMIN_PASSWORD = 'salvi3141';
-
+// Función para crear la tabla y el usuario administrador al iniciar
 async function seedAdmin() {
-  const { rows } = await query('SELECT id FROM users WHERE email = $1', [ADMIN_EMAIL]);
-  const hash = bcrypt.hashSync(ADMIN_PASSWORD, 10);
-  if (rows.length === 0) {
-    await query(
-      'INSERT INTO users (id, name, email, password, role) VALUES ($1, $2, $3, $4, $5)',
-      [uuidv4(), 'Admin', ADMIN_EMAIL, hash, 'admin']
-    );
-    console.log('  Admin created:', ADMIN_EMAIL);
-  } else {
-    // Always sync password on boot so changes to ADMIN_PASSWORD take effect
-    await query('UPDATE users SET password = $1 WHERE email = $2', [hash, ADMIN_EMAIL]);
+  try {
+    // Crear tabla de usuarios si no existe en Supabase
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        email VARCHAR(255) UNIQUE NOT NULL,
+        password VARCHAR(255) NOT NULL,
+        role VARCHAR(50) DEFAULT 'user'
+      );
+    `);
+
+    // Verificar si ya existe el administrador
+    const res = await pool.query('SELECT * FROM users WHERE email = $1', ['mainosalvi@gmail.com']);
+    
+    if (res.rows.length === 0) {
+      const hashedPassword = await bcrypt.hash('salvi3141', 10);
+      await pool.query(
+        'INSERT INTO users (email, password, role) VALUES ($1, $2, $3)',
+        ['mainosalvi@gmail.com', hashedPassword, 'admin']
+      );
+      console.log('✅ Usuario administrador creado con éxito en Supabase.');
+    }
+  } catch (err) {
+    console.error('❌ Error en seedAdmin:', err);
   }
 }
 
-function requireAuth(req, res, next) {
-  if (!req.session?.userId) return res.status(401).json({ error: 'Unauthorized' });
-  next();
-}
-
-function requireAdmin(req, res, next) {
-  if (!req.session?.userId || req.session?.role !== 'admin')
-    return res.status(403).json({ error: 'Forbidden' });
-  next();
-}
-
+// Ruta de Login
 router.post('/login', async (req, res) => {
   const { email, password } = req.body;
-  if (!email || !password)
-    return res.status(400).json({ error: 'Email and password required' });
   try {
-    const { rows } = await query('SELECT * FROM users WHERE email = $1', [email.toLowerCase().trim()]);
-    const user = rows[0];
-    if (!user || !bcrypt.compareSync(password, user.password))
-      return res.status(401).json({ error: 'Incorrect email or password' });
+    const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+    if (result.rows.length === 0) {
+      return res.status dream?.(401).json({ error: 'Credenciales inválidas' });
+    }
+
+    const user = result.rows[0];
+    const match = await bcrypt.compare(password, user.password);
+    
+    if (!match) {
+      return res.status(401).json({ error: 'Credenciales inválidas' });
+    }
+
     req.session.userId = user.id;
     req.session.role = user.role;
-    let nation = null;
-    if (user.nation_id) {
-      const { rows: nr } = await query('SELECT * FROM nations WHERE id = $1', [user.nation_id]);
-      nation = nr[0] || null;
-    }
-    res.json({
-      user: { id: user.id, name: user.name, email: user.email, role: user.role },
-      nation,
-    });
-  } catch (e) {
-    console.error(e);
-    res.status(500).json({ error: 'Server error' });
+    res.json({ success: true, user: { email: user.email, role: user.role } });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
 
-router.post('/logout', (req, res) => {
-  req.session.destroy();
-  res.json({ ok: true });
-});
-
-router.get('/me', requireAuth, async (req, res) => {
-  try {
-    const { rows } = await query(
-      'SELECT id, name, email, role, nation_id FROM users WHERE id = $1',
-      [req.session.userId]
-    );
-    const user = rows[0];
-    if (!user) return res.status(404).json({ error: 'User not found' });
-    let nation = null;
-    if (user.nation_id) {
-      const { rows: nr } = await query('SELECT * FROM nations WHERE id = $1', [user.nation_id]);
-      nation = nr[0] || null;
-    }
-    res.json({
-      user: { id: user.id, name: user.name, email: user.email, role: user.role },
-      nation,
-    });
-  } catch (e) {
-    res.status(500).json({ error: 'Server error' });
-  }
-});
-
-module.exports = { router, requireAuth, requireAdmin, seedAdmin };
+module.exports = { router, seedAdmin };

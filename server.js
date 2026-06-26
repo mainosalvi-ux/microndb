@@ -7,14 +7,35 @@ const path = require('path');
 const { initSchema } = require('./db');
 
 const app = express();
+
+// Configuración obligatoria para que express-rate-limit funcione en Render
+app.set('trust proxy', 1); 
+
 const PORT = process.env.PORT || 3000;
 const SESSION_SECRET = process.env.SESSION_SECRET || 'micronation-dev-secret-change-in-prod';
 
 app.use(helmet({ contentSecurityPolicy: false }));
 
-const loginLimiter = rateLimit({ windowMs: 15*60*1000, max: 20, message: { error: 'Too many attempts. Try in 15 min.' } });
-const apiLimiter = rateLimit({ windowMs: 60*1000, max: 200 });
-const joinLimiter = rateLimit({ windowMs: 60*1000, max: 10, message: { error: 'Too many submissions. Please wait.' } });
+// Limitadores parchados con la opción validate para evitar caídas en Render
+const loginLimiter = rateLimit({ 
+  windowMs: 15 * 60 * 1000, 
+  max: 20, 
+  message: { error: 'Too many attempts. Try in 15 min.' },
+  validate: { trustProxy: false } 
+});
+
+const apiLimiter = rateLimit({ 
+  windowMs: 60 * 1000, 
+  max: 200,
+  validate: { trustProxy: false }
+});
+
+const joinLimiter = rateLimit({ 
+  windowMs: 60 * 1000, 
+  max: 10, 
+  message: { error: 'Too many submissions. Please wait.' },
+  validate: { trustProxy: false }
+});
 
 app.use(express.json({ limit: '50kb' }));
 app.use(cookieParser());
