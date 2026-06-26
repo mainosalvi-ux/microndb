@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Join — Micronation DB</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    body { background: var(--bg); display: flex; align-items: flex-start; justify-content: center; padding: 48px 16px; min-height: 100vh; }
+    .join-wrap { width: 100%; max-width: 480px; }
+    .nation-banner { display: flex; align-items: center; gap: 14px; margin-bottom: 28px; }
+    .nation-icon { width: 52px; height: 52px; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: 700; flex-shrink: 0; }
+    .nation-banner h1 { font-size: 22px; font-weight: 700; letter-spacing: -.4px; }
+    .nation-banner p { font-size: 13px; color: var(--muted); margin-top: 2px; }
+    .success-box { text-align: center; padding: 48px 24px; }
+    .success-box i { font-size: 48px; color: #2B7A4B; margin-bottom: 16px; display: block; }
+    .success-box h2 { font-size: 20px; font-weight: 600; margin-bottom: 8px; }
+    .success-box p { font-size: 14px; color: var(--muted); }
+  </style>
+</head>
+<body>
+  <div class="join-wrap">
+    <div id="loading" style="text-align:center;padding:60px 0;color:var(--muted)">
+      <i class="ti ti-loader-2" style="font-size:32px;display:block;margin-bottom:12px"></i>
+      Loading…
+    </div>
+    <div id="join-content" style="display:none">
+      <div class="nation-banner">
+        <div class="nation-icon" id="nation-icon"></div>
+        <div>
+          <h1 id="nation-name">Nation</h1>
+          <p>Citizen registration form</p>
+        </div>
+      </div>
+      <div class="card" style="padding:24px">
+        <div id="join-form"></div>
+        <div id="join-err" class="form-error"></div>
+        <button class="btn primary full" style="margin-top:6px" id="join-btn" onclick="submitForm()">
+          <i class="ti ti-user-check"></i> Register as citizen
+        </button>
+      </div>
+      <p style="text-align:center;font-size:12px;color:var(--muted);margin-top:14px">
+        Powered by Micronation DB
+      </p>
+    </div>
+    <div id="success-content" style="display:none" class="card">
+      <div class="success-box">
+        <i class="ti ti-circle-check-filled"></i>
+        <h2>You're in!</h2>
+        <p>Your citizen registration has been submitted to <strong id="success-nation"></strong>.</p>
+      </div>
+    </div>
+    <div id="error-content" style="display:none" class="card" style="padding:40px;text-align:center">
+      <div style="text-align:center;padding:40px">
+        <i class="ti ti-alert-circle" style="font-size:36px;color:var(--danger);display:block;margin-bottom:12px"></i>
+        <h2 style="font-size:18px;font-weight:600;margin-bottom:8px">Invalid link</h2>
+        <p style="font-size:13px;color:var(--muted)">This registration link doesn't exist or has expired.</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const COLORS = [
+      { bg: '#E6F1FB', txt: '#0C447C' }, { bg: '#E1F5EE', txt: '#085041' },
+      { bg: '#FAEEDA', txt: '#633806' }, { bg: '#FBEAF0', txt: '#72243E' },
+      { bg: '#EEEDFE', txt: '#3C3489' }, { bg: '#FAECE7', txt: '#712B13' },
+      { bg: '#EAF3DE', txt: '#27500A' }, { bg: '#F1EFE8', txt: '#444441' },
+    ];
+    const FTYPES = { text:'text', number:'number', boolean:'boolean', date:'date', email:'email' };
+
+    const token = location.pathname.split('/join/')[1]?.split('/')[0];
+    let nation = null;
+
+    function esc(s) { return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+    async function load() {
+      if (!token) { showError(); return; }
+      try {
+        const res = await fetch('/api/join/' + token);
+        if (!res.ok) { showError(); return; }
+        nation = await res.json();
+        render();
+      } catch { showError(); }
+    }
+
+    function render() {
+      const c = COLORS[(nation.color_idx || 0) % COLORS.length];
+      const icon = document.getElementById('nation-icon');
+      icon.style.background = c.bg; icon.style.color = c.txt;
+      icon.textContent = nation.name[0].toUpperCase();
+      document.getElementById('nation-name').textContent = nation.name;
+      document.title = 'Join ' + nation.name;
+
+      const fields = nation.fields || [];
+      document.getElementById('join-form').innerHTML = fields.map(f => {
+        let inp = '';
+        if (f.type === 'boolean') {
+          inp = `<select id="jf-${esc(f.name)}"><option value="">(select)</option><option value="true">Yes</option><option value="false">No</option></select>`;
+        } else if (f.type === 'number') {
+          inp = `<input type="number" id="jf-${esc(f.name)}" placeholder="0">`;
+        } else if (f.type === 'date') {
+          inp = `<input type="date" id="jf-${esc(f.name)}">`;
+        } else if (f.type === 'email') {
+          inp = `<input type="email" id="jf-${esc(f.name)}" placeholder="you@email.com">`;
+        } else {
+          inp = `<input type="text" id="jf-${esc(f.name)}" placeholder="${esc(f.name)}">`;
+        }
+        return `<div class="form-group"><label>${esc(f.name)}</label>${inp}</div>`;
+      }).join('');
+
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('join-content').style.display = 'block';
+    }
+
+    async function submitForm() {
+      const fields = nation?.fields || [];
+      const data = {};
+      for (const f of fields) {
+        const el = document.getElementById('jf-' + f.name);
+        if (!el) continue;
+        if (f.type === 'number') data[f.name] = el.value === '' ? '' : Number(el.value);
+        else if (f.type === 'boolean') data[f.name] = el.value === '' ? null : el.value === 'true';
+        else data[f.name] = el.value;
+      }
+
+      const err = document.getElementById('join-err');
+      err.textContent = '';
+      const btn = document.getElementById('join-btn');
+      btn.disabled = true; btn.innerHTML = '<i class="ti ti-loader-2"></i> Submitting…';
+
+      try {
+        const res = await fetch('/api/join/' + token, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ data })
+        });
+        const result = await res.json();
+        if (!res.ok) { err.textContent = result.error; btn.disabled = false; btn.innerHTML = '<i class="ti ti-user-check"></i> Register as citizen'; return; }
+        document.getElementById('success-nation').textContent = nation.name;
+        document.getElementById('join-content').style.display = 'none';
+        document.getElementById('success-content').style.display = 'block';
+      } catch {
+        err.textContent = 'Connection error. Please try again.';
+        btn.disabled = false; btn.innerHTML = '<i class="ti ti-user-check"></i> Register as citizen';
+      }
+    }
+
+    function showError() {
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('error-content').style.display = 'block';
+    }
+
+    load();
+  </script>
+</body>
+</html>
