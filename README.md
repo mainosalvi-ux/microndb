@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # 🌍 Micronation Database
 
 A full-stack web app where an admin creates accounts for micronations, each with their own custom collection. All records go into a shared general database.
@@ -88,6 +87,3 @@ micronation-db/
 ├── db/                 # SQLite file lives here (auto-created)
 └── package.json
 ```
-=======
-# microndb
->>>>>>> bb4217b2b15ff4296de71a58b18845f0d1dd76eb

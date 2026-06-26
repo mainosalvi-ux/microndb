@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Micronation Database</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/style.css">
 </head>
@@ -20,18 +19,10 @@
       <p>Sign in to your account</p>
     </div>
     <div class="card login-card">
-      <div class="form-group">
-        <label>Email</label>
-        <input id="login-email" type="email" placeholder="your@email.com" autocomplete="email">
-      </div>
-      <div class="form-group">
-        <label>Password</label>
-        <input id="login-pass" type="password" placeholder="••••••••" autocomplete="current-password">
-      </div>
+      <div class="form-group"><label>Email</label><input id="login-email" type="email" placeholder="your@email.com" autocomplete="email"></div>
+      <div class="form-group"><label>Password</label><input id="login-pass" type="password" placeholder="••••••••" autocomplete="current-password"></div>
       <div id="login-err" class="form-error"></div>
-      <button class="btn primary full" id="login-btn" onclick="doLogin()">
-        <i class="ti ti-login"></i> Sign in
-      </button>
+      <button class="btn primary full" id="login-btn" onclick="doLogin()"><i class="ti ti-login"></i> Sign in</button>
     </div>
     <p class="login-hint">Don't have an account? Contact the administrator.</p>
   </div>
@@ -40,24 +31,18 @@
 <!-- ADMIN -->
 <div id="screen-admin" class="screen">
   <aside class="sidebar">
-    <div class="sidebar-logo">
-      <i class="ti ti-globe"></i>
-      <span>Micronation DB</span>
-    </div>
+    <div class="sidebar-logo"><i class="ti ti-globe"></i><span>Micronation DB</span></div>
     <nav class="sidebar-nav">
-      <button class="nav-item active" onclick="adminTab('overview', this)"><i class="ti ti-home"></i> Overview</button>
-      <button class="nav-item" onclick="adminTab('nations', this)"><i class="ti ti-map"></i> Nations</button>
-      <button class="nav-item" onclick="adminTab('accounts', this)"><i class="ti ti-users"></i> Accounts</button>
+      <button class="nav-item active" onclick="adminTab('overview',this)"><i class="ti ti-home"></i> Overview</button>
+      <button class="nav-item" onclick="adminTab('nations',this)"><i class="ti ti-map"></i> Nations</button>
+      <button class="nav-item" onclick="adminTab('accounts',this)"><i class="ti ti-users"></i> Accounts</button>
     </nav>
     <div class="sidebar-footer">
       <div class="sidebar-user">
         <div class="user-avatar admin-avatar">A</div>
-        <div>
-          <div class="user-name">Admin</div>
-          <div class="user-email">mainosalvi@gmail.com</div>
-        </div>
+        <div><div class="user-name">Admin</div><div class="user-email">mainosalvi@gmail.com</div></div>
       </div>
-      <button class="btn ghost sm icon" onclick="doLogout()" title="Sign out"><i class="ti ti-logout"></i></button>
+      <button class="btn ghost sm" onclick="doLogout()"><i class="ti ti-logout"></i></button>
     </div>
   </aside>
   <main class="main-content">
@@ -72,76 +57,45 @@
   <header class="user-header">
     <div class="user-header-left">
       <i class="ti ti-globe" style="font-size:20px;color:var(--muted)"></i>
-      <div>
-        <h1 id="user-nation-name">My Nation</h1>
-        <p id="user-nation-sub" style="font-size:12px;color:var(--muted);margin-top:1px"></p>
-      </div>
+      <h1 id="user-nation-name">My Nation</h1>
     </div>
     <div style="display:flex;align-items:center;gap:10px">
       <div id="user-info-pill" class="user-pill"></div>
-      <button class="btn sm" onclick="showUserTab('records')" id="tab-btn-records"><i class="ti ti-database"></i> Records</button>
-      <button class="btn sm ghost" onclick="showUserTab('citizens')" id="tab-btn-citizens"><i class="ti ti-users"></i> Citizens</button>
-      <button class="btn primary sm" id="user-add-btn" onclick="openNewRecord()"><i class="ti ti-plus"></i> Add</button>
-      <button class="btn ghost sm" onclick="doLogout()"><i class="ti ti-logout"></i></button>
+      <button class="btn ghost sm" onclick="doLogout()"><i class="ti ti-logout"></i> Sign out</button>
     </div>
   </header>
-  <div class="user-body">
-    <!-- Records tab -->
-    <div id="user-tab-records">
-      <div class="toolbar">
-        <div class="search-box"><i class="ti ti-search"></i><input id="user-search" placeholder="Search records..." oninput="renderUserRecords()"></div>
-        <span id="user-count" class="count-badge"></span>
-      </div>
-      <div id="user-records"></div>
-    </div>
-    <!-- Citizens tab -->
-    <div id="user-tab-citizens" style="display:none">
-      <div class="join-link-box" id="join-link-box"></div>
-      <div class="toolbar" style="margin-top:14px">
-        <div class="search-box"><i class="ti ti-search"></i><input id="citizen-search" placeholder="Search citizens..." oninput="renderCitizens()"></div>
-        <span id="citizen-count" class="count-badge"></span>
-      </div>
-      <div id="citizen-list"></div>
-    </div>
+  <div class="user-tabs-bar">
+    <button class="user-tab active" onclick="userTab('records',this)"><i class="ti ti-database"></i> Records</button>
+    <button class="user-tab" onclick="userTab('docs',this)"><i class="ti ti-files"></i> Documents</button>
   </div>
-</div>
 
-<!-- PUBLIC: Citizen Registration -->
-<div id="screen-join" class="screen">
-  <div class="join-wrap">
-    <div id="join-loading" class="join-loading"><i class="ti ti-loader-2 spin"></i> Loading…</div>
-    <div id="join-content" style="display:none">
-      <div class="join-hero">
-        <div id="join-nation-avatar" class="join-avatar"></div>
-        <h1 id="join-nation-name"></h1>
-        <p>Register as a citizen of this micronation</p>
-      </div>
-      <div class="card join-card">
-        <div class="form-group"><label>Full name <span class="req">*</span></label><input id="cit-name" placeholder="Your full name"></div>
-        <div class="form-group"><label>Email <span class="req">*</span></label><input id="cit-email" type="email" placeholder="your@email.com"></div>
-        <div class="form-group"><label>Date of birth</label><input id="cit-dob" type="date"></div>
-        <div class="form-group"><label>City of origin</label><input id="cit-city" placeholder="Where are you from?"></div>
-        <div class="form-group"><label>Reason to join</label><textarea id="cit-reason" placeholder="Why do you want to join this nation?" rows="3"></textarea></div>
-        <div id="join-err" class="form-error"></div>
-        <button class="btn primary full" id="join-btn" onclick="submitCitizen()"><i class="ti ti-user-plus"></i> Register as citizen</button>
-      </div>
+  <!-- Records panel -->
+  <div id="user-records-panel" class="user-body">
+    <div class="toolbar">
+      <div class="search-box"><i class="ti ti-search"></i><input id="user-search" placeholder="Search records…" oninput="renderUserRecords()"></div>
+      <span id="user-count" class="count-badge"></span>
+      <button class="btn primary sm" style="margin-left:auto" onclick="openNewRecord()"><i class="ti ti-plus"></i> Add record</button>
     </div>
-    <div id="join-success" style="display:none" class="join-success">
-      <i class="ti ti-circle-check"></i>
-      <h2>Welcome, citizen!</h2>
-      <p id="join-success-msg"></p>
+    <div id="user-records"></div>
+  </div>
+
+  <!-- Documents panel -->
+  <div id="user-docs-panel" class="user-body" style="display:none">
+    <div class="toolbar">
+      <label class="btn" style="cursor:pointer"><i class="ti ti-paperclip"></i> Choose file
+        <input type="file" id="doc-input" style="display:none" onchange="document.getElementById('upload-btn').disabled=!this.files.length">
+      </label>
+      <span id="doc-filename" style="font-size:13px;color:var(--muted)"></span>
+      <button class="btn primary sm" id="upload-btn" onclick="uploadDoc()" disabled style="margin-left:auto"><i class="ti ti-upload"></i> Upload</button>
     </div>
-    <div id="join-notfound" style="display:none" class="join-notfound">
-      <i class="ti ti-alert-circle"></i>
-      <h2>Nation not found</h2>
-      <p>The registration link is invalid or this nation no longer exists.</p>
-    </div>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:14px">Supported: PDF, Word, Excel, images, TXT · Max 10MB</p>
+    <div id="user-docs"></div>
   </div>
 </div>
 
 <!-- MODAL: Account -->
-<div id="modal-account" class="modal-overlay" onclick="closeModalOverlay('modal-account', event)">
-  <div class="modal" onclick="event.stopPropagation()">
+<div id="modal-account" class="modal-overlay" onclick="closeModalOverlay('modal-account',event)">
+  <div class="modal">
     <div class="modal-header">
       <h2 id="modal-acc-title">Create account</h2>
       <button class="btn icon" onclick="closeModal('modal-account')"><i class="ti ti-x"></i></button>
@@ -154,7 +108,7 @@
       <div class="form-group"><label>Password</label><input id="acc-pass" type="password" placeholder="Set a password"></div>
       <div class="form-group"><label>Micronation name</label><input id="acc-nation" placeholder="e.g. Kingdom of Aurelia"></div>
       <div class="form-group">
-        <label>Collection fields <span class="label-hint">— columns users can fill in</span></label>
+        <label>Citizen form fields <span class="label-hint">— what citizens fill in when they register</span></label>
         <div id="acc-fields-list"></div>
         <button class="btn ghost sm" style="margin-top:6px" onclick="addAccField()"><i class="ti ti-plus"></i> Add field</button>
       </div>
@@ -169,8 +123,8 @@
 </div>
 
 <!-- MODAL: Record -->
-<div id="modal-record" class="modal-overlay" onclick="closeModalOverlay('modal-record', event)">
-  <div class="modal" onclick="event.stopPropagation()">
+<div id="modal-record" class="modal-overlay" onclick="closeModalOverlay('modal-record',event)">
+  <div class="modal">
     <div class="modal-header">
       <h2 id="modal-rec-title">New record</h2>
       <button class="btn icon" onclick="closeModal('modal-record')"><i class="ti ti-x"></i></button>

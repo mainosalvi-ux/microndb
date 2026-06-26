@@ -2,23 +2,23 @@ const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
-const { getDb, query, queryOne, run } = require('./database');
+const { query } = require('../db');
 
 const ADMIN_EMAIL = 'mainosalvi@gmail.com';
 const ADMIN_PASSWORD = 'salvi3141';
 
 async function seedAdmin() {
-  await getDb();
-  const existing = queryOne('SELECT id FROM users WHERE email = ?', [ADMIN_EMAIL]);
-  if (!existing) {
-    const hash = bcrypt.hashSync(ADMIN_PASSWORD, 10);
-    run('INSERT INTO users (id, name, email, password, role) VALUES (?, ?, ?, ?, ?)',
-      [uuidv4(), 'Admin', ADMIN_EMAIL, hash, 'admin']);
-    console.log('  Admin seeded:', ADMIN_EMAIL);
+  const { rows } = await query('SELECT id FROM users WHERE email = $1', [ADMIN_EMAIL]);
+  const hash = bcrypt.hashSync(ADMIN_PASSWORD, 10);
+  if (rows.length === 0) {
+    await query(
+      'INSERT INTO users (id, name, email, password, role) VALUES ($1, $2, $3, $4, $5)',
+      [uuidv4(), 'Admin', ADMIN_EMAIL, hash, 'admin']
+    );
+    console.log('  Admin created:', ADMIN_EMAIL);
   } else {
-    // Always sync admin password on boot
-    const hash = bcrypt.hashSync(ADMIN_PASSWORD, 10);
-    run('UPDATE users SET password = ? WHERE email = ?', [hash, ADMIN_EMAIL]);
+    // Always sync password on boot so changes to ADMIN_PASSWORD take effect
+    await query('UPDATE users SET password = $1 WHERE email = $2', [hash, ADMIN_EMAIL]);
   }
 }
 
@@ -28,37 +28,62 @@ function requireAuth(req, res, next) {
 }
 
 function requireAdmin(req, res, next) {
-  if (!req.session?.userId || req.session?.role !== 'admin') return res.status(403).json({ error: 'Forbidden' });
+  if (!req.session?.userId || req.session?.role !== 'admin')
+    return res.status(403).json({ error: 'Forbidden' });
   next();
 }
 
 router.post('/login', async (req, res) => {
-  await getDb();
   const { email, password } = req.body;
-  if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
-  const user = queryOne('SELECT * FROM users WHERE email = ?', [email.toLowerCase().trim()]);
-  if (!user || !bcrypt.compareSync(password, user.password))
-    return res.status(401).json({ error: 'Incorrect email or password' });
-  req.session.userId = user.id;
-  req.session.role = user.role;
-  const nation = user.nation_id ? queryOne('SELECT * FROM nations WHERE id = ?', [user.nation_id]) : null;
-  res.json({
-    user: { id: user.id, name: user.name, email: user.email, role: user.role },
-    nation: nation ? { ...nation, fields: JSON.parse(nation.fields) } : null
-  });
+  if (!email || !password)
+    return res.status(400).json({ error: 'Email and password required' });
+  try {
+    const { rows } = await query('SELECT * FROM users WHERE email = $1', [email.toLowerCase().trim()]);
+    const user = rows[0];
+    if (!user || !bcrypt.compareSync(password, user.password))
+      return res.status(401).json({ error: 'Incorrect email or password' });
+    req.session.userId = user.id;
+    req.session.role = user.role;
+    let nation = null;
+    if (user.nation_id) {
+      const { rows: nr } = await query('SELECT * FROM nations WHERE id = $1', [user.nation_id]);
+      nation = nr[0] || null;
+    }
+    res.json({
+      user: { id: user.id, name: user.name, email: user.email, role: user.role },
+      nation,
+    });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Server error' });
+  }
 });
 
-router.post('/logout', (req, res) => { req.session.destroy(); res.json({ ok: true }); });
+router.post('/logout', (req, res) => {
+  req.session.destroy();
+  res.json({ ok: true });
+});
 
 router.get('/me', requireAuth, async (req, res) => {
-  await getDb();
-  const user = queryOne('SELECT id, name, email, role, nation_id FROM users WHERE id = ?', [req.session.userId]);
-  if (!user) return res.status(404).json({ error: 'User not found' });
-  const nation = user.nation_id ? queryOne('SELECT * FROM nations WHERE id = ?', [user.nation_id]) : null;
-  res.json({
-    user: { id: user.id, name: user.name, email: user.email, role: user.role },
-    nation: nation ? { ...nation, fields: JSON.parse(nation.fields) } : null
-  });
+  try {
+    const { rows } = await query(
+      'SELECT id, name, email, role, nation_id FROM users WHERE id = $1',
+      [req.session.userId]
+    );
+    const user = rows[0];
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    let nation = null;
+    if (user.nation_id) {
+      const { rows: nr } = await query('SELECT * FROM nations WHERE id = $1', [user.nation_id]);
+      nation = nr[0] || null;
+    }
+    res.json({
+      user: { id: user.id, name: user.name, email: user.email, role: user.role },
+      nation,
+    });
+  } catch (e) {
+    res.status(500).json({ error: 'Server error' });
+  }
 });
 
 module.exports = { router, requireAuth, requireAdmin, seedAdmin };

@@ -3,91 +3,126 @@ const router = express.Router();
 const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
 const crypto = require('crypto');
-const { getDb, query, queryOne, run } = require('./database');
+const { query } = require('../db');
 const { requireAdmin } = require('./auth');
 
 function genToken() {
   return crypto.randomBytes(16).toString('hex');
 }
 
+// GET /api/admin/users
 router.get('/users', requireAdmin, async (req, res) => {
-  await getDb();
-  const users = query("SELECT id, name, email, role, nation_id, created_at FROM users WHERE role != 'admin'");
-  const nations = query('SELECT * FROM nations').reduce((m, n) => {
-    m[n.id] = { ...n, fields: JSON.parse(n.fields) }; return m;
-  }, {});
-  res.json(users.map(u => ({ ...u, nation: u.nation_id ? nations[u.nation_id] : null })));
+  try {
+    const { rows: users } = await query(
+      "SELECT id, name, email, role, nation_id, created_at FROM users WHERE role != 'admin'"
+    );
+    const { rows: nations } = await query('SELECT * FROM nations');
+    const nationMap = Object.fromEntries(nations.map(n => [n.id, n]));
+    res.json(users.map(u => ({ ...u, nation: u.nation_id ? nationMap[u.nation_id] : null })));
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// POST /api/admin/users
 router.post('/users', requireAdmin, async (req, res) => {
-  await getDb();
   const { name, email, password, nationName, fields } = req.body;
   if (!name || !email || !password || !nationName || !fields?.length)
     return res.status(400).json({ error: 'All fields required' });
-  const existing = queryOne('SELECT id FROM users WHERE email = ?', [email.toLowerCase().trim()]);
-  if (existing) return res.status(409).json({ error: 'Email already registered' });
-  const colorIdx = query('SELECT COUNT(*) as c FROM nations')[0].c % 8;
-  const nationId = uuidv4();
-  const token = genToken();
-  run('INSERT INTO nations (id, name, color_idx, fields, join_token) VALUES (?, ?, ?, ?, ?)',
-    [nationId, nationName, colorIdx, JSON.stringify(fields), token]);
-  const userId = uuidv4();
-  run('INSERT INTO users (id, name, email, password, role, nation_id) VALUES (?, ?, ?, ?, ?, ?)',
-    [userId, name, email.toLowerCase().trim(), bcrypt.hashSync(password, 10), 'user', nationId]);
-  res.json({ ok: true, userId, nationId, joinToken: token });
+  try {
+    const { rows: ex } = await query('SELECT id FROM users WHERE email = $1', [email.toLowerCase().trim()]);
+    if (ex.length) return res.status(409).json({ error: 'Email already registered' });
+
+    const { rows: nc } = await query('SELECT COUNT(*) as c FROM nations');
+    const colorIdx = parseInt(nc[0].c) % 8;
+    const nationId = uuidv4();
+    const token = genToken();
+
+    await query(
+      'INSERT INTO nations (id, name, color_idx, fields, join_token) VALUES ($1, $2, $3, $4, $5)',
+      [nationId, nationName, colorIdx, JSON.stringify(fields), token]
+    );
+    const userId = uuidv4();
+    await query(
+      'INSERT INTO users (id, name, email, password, role, nation_id) VALUES ($1, $2, $3, $4, $5, $6)',
+      [userId, name, email.toLowerCase().trim(), bcrypt.hashSync(password, 10), 'user', nationId]
+    );
+    res.json({ ok: true, userId, nationId, joinToken: token });
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// PUT /api/admin/users/:id
 router.put('/users/:id', requireAdmin, async (req, res) => {
-  await getDb();
   const { name, password, nationName, fields } = req.body;
-  const user = queryOne('SELECT * FROM users WHERE id = ?', [req.params.id]);
-  if (!user) return res.status(404).json({ error: 'User not found' });
-  if (name) run('UPDATE users SET name = ? WHERE id = ?', [name, user.id]);
-  if (password) run('UPDATE users SET password = ? WHERE id = ?', [bcrypt.hashSync(password, 10), user.id]);
-  if (nationName && user.nation_id) run('UPDATE nations SET name = ? WHERE id = ?', [nationName, user.nation_id]);
-  if (fields && user.nation_id) run('UPDATE nations SET fields = ? WHERE id = ?', [JSON.stringify(fields), user.nation_id]);
-  res.json({ ok: true });
+  try {
+    const { rows } = await query('SELECT * FROM users WHERE id = $1', [req.params.id]);
+    const user = rows[0];
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    if (name) await query('UPDATE users SET name = $1 WHERE id = $2', [name, user.id]);
+    if (password) await query('UPDATE users SET password = $1 WHERE id = $2', [bcrypt.hashSync(password, 10), user.id]);
+    if (nationName && user.nation_id) await query('UPDATE nations SET name = $1 WHERE id = $2', [nationName, user.nation_id]);
+    if (fields && user.nation_id) await query('UPDATE nations SET fields = $1 WHERE id = $2', [JSON.stringify(fields), user.nation_id]);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// DELETE /api/admin/users/:id
 router.delete('/users/:id', requireAdmin, async (req, res) => {
-  await getDb();
-  const user = queryOne('SELECT * FROM users WHERE id = ?', [req.params.id]);
-  if (!user) return res.status(404).json({ error: 'User not found' });
-  if (user.nation_id) {
-    run('DELETE FROM records WHERE nation_id = ?', [user.nation_id]);
-    run('DELETE FROM nations WHERE id = ?', [user.nation_id]);
-  }
-  run('DELETE FROM users WHERE id = ?', [user.id]);
-  res.json({ ok: true });
+  try {
+    const { rows } = await query('SELECT * FROM users WHERE id = $1', [req.params.id]);
+    const user = rows[0];
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    if (user.nation_id) {
+      await query('DELETE FROM records WHERE nation_id = $1', [user.nation_id]);
+      await query('DELETE FROM documents WHERE nation_id = $1', [user.nation_id]);
+      await query('DELETE FROM nations WHERE id = $1', [user.nation_id]);
+    }
+    await query('DELETE FROM users WHERE id = $1', [user.id]);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-router.get('/nations', requireAdmin, async (req, res) => {
-  await getDb();
-  const nations = query('SELECT * FROM nations').map(n => ({ ...n, fields: JSON.parse(n.fields) }));
-  const records = query('SELECT * FROM records ORDER BY created_at DESC').map(r => ({ ...r, data: JSON.parse(r.data) }));
-  const byNation = records.reduce((m, r) => { (m[r.nation_id] = m[r.nation_id] || []).push(r); return m; }, {});
-  res.json(nations.map(n => ({ ...n, records: byNation[n.id] || [] })));
-});
-
+// GET /api/admin/stats — NO record listing, just numbers
 router.get('/stats', requireAdmin, async (req, res) => {
-  await getDb();
-  const nations = query('SELECT COUNT(*) as c FROM nations')[0].c;
-  const users = query("SELECT COUNT(*) as c FROM users WHERE role != 'admin'")[0].c;
-  const records = query('SELECT COUNT(*) as c FROM records')[0].c;
-  const recent = query(`
-    SELECT r.id, r.data, r.created_at, r.nation_id, r.source, n.name as nation_name, n.color_idx
-    FROM records r JOIN nations n ON r.nation_id = n.id
-    ORDER BY r.created_at DESC LIMIT 8
-  `).map(r => ({ ...r, data: JSON.parse(r.data) }));
-  res.json({ nations, users, records, recent });
+  try {
+    const { rows: [nc] } = await query('SELECT COUNT(*) as c FROM nations');
+    const { rows: [uc] } = await query("SELECT COUNT(*) as c FROM users WHERE role != 'admin'");
+    const { rows: [rc] } = await query('SELECT COUNT(*) as c FROM records');
+    const { rows: [cc] } = await query("SELECT COUNT(*) as c FROM records WHERE source = 'citizen'");
+    res.json({
+      nations: parseInt(nc.c),
+      users: parseInt(uc.c),
+      records: parseInt(rc.c),
+      citizens: parseInt(cc.c),
+    });
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// Regenerate join link
+// GET /api/admin/nations — nation list with join links, NO records
+router.get('/nations', requireAdmin, async (req, res) => {
+  try {
+    const { rows: nations } = await query('SELECT * FROM nations ORDER BY created_at ASC');
+    // Just counts per nation, not full records
+    const { rows: counts } = await query(`
+      SELECT nation_id,
+        COUNT(*) as total,
+        COUNT(*) FILTER (WHERE source = 'citizen') as citizens
+      FROM records GROUP BY nation_id
+    `);
+    const countMap = Object.fromEntries(counts.map(c => [c.nation_id, c]));
+    res.json(nations.map(n => ({
+      ...n,
+      total: parseInt(countMap[n.id]?.total || 0),
+      citizens: parseInt(countMap[n.id]?.citizens || 0),
+    })));
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// POST /api/admin/nations/:id/regen-token
 router.post('/nations/:id/regen-token', requireAdmin, async (req, res) => {
-  await getDb();
-  const token = genToken();
-  run('UPDATE nations SET join_token = ? WHERE id = ?', [token, req.params.id]);
-  res.json({ ok: true, joinToken: token });
+  try {
+    const token = genToken();
+    await query('UPDATE nations SET join_token = $1 WHERE id = $2', [token, req.params.id]);
+    res.json({ ok: true, joinToken: token });
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 module.exports = router;

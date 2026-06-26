@@ -14,8 +14,8 @@
     "express-rate-limit": "^7.2.0",
     "express-session": "^1.17.3",
     "helmet": "^7.1.0",
-    "pg": "^8.22.0",
-    "sql.js": "^1.14.1",
+    "multer": "*",
+    "pg": "*",
     "uuid": "^9.0.0"
   },
   "devDependencies": {
