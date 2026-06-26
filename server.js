@@ -6,9 +6,8 @@ const rateLimit = require('express-rate-limit');
 const path = require('path');
 
 const app = express();
-const app = express();
 
-
+// Configuración requerida para proxies como Render
 app.set('trust proxy', 1); 
 
 const PORT = process.env.PORT || 3000;
@@ -24,6 +23,7 @@ const loginLimiter = rateLimit({
   message: { error: 'Too many login attempts. Try again in 15 minutes.' },
   standardHeaders: true,
   legacyHeaders: false,
+  validate: { trustProxy: false }, // Solución para Render
 });
 
 // General API rate limit
@@ -31,6 +31,7 @@ const apiLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 120,
   message: { error: 'Too many requests.' },
+  validate: { trustProxy: false }, // Solución para Render
 });
 
 // Public form rate limit (citizen registration)
@@ -38,6 +39,7 @@ const joinLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 10,
   message: { error: 'Too many submissions. Please wait.' },
+  validate: { trustProxy: false }, // Solución para Render
 });
 
 app.use(express.json({ limit: '50kb' }));
@@ -73,4 +75,3 @@ seedAdmin().then(() => {
     console.log(`   Admin: mainosalvi@gmail.com / salvi3141\n`);
   });
 });
-// This line is intentionally blank — join.html is served by express.static
