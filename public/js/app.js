@@ -1,12 +1,10 @@
 // ==========================================
 // CONFIGURACIÓN CENTRAL DE LA APP
 // ==========================================
-const API_URL = ''; // Dejar vacío si el backend corre en el mismo servidor de Render
+const API_URL = ''; 
 let currentUser = null;
 
-// Ejecutar acciones inmediatas al cargar la web
 document.addEventListener('DOMContentLoaded', () => {
-    // Intentar recuperar la sesión guardada para que no pida login al recargar
     const savedUser = localStorage.getItem('micronation_user');
     if (savedUser) {
         try {
@@ -22,30 +20,17 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ==========================================
-// AUTENTICACIÓN (LOGIN CORREGIDO Y SEGURO)
+// AUTENTICACIÓN (LOGIN)
 // ==========================================
 async function doLogin(event) {
     if (event) event.preventDefault();
     
-    // Buscador tolerante de inputs: intenta por ID, sino por tipo nativo del HTML
-    let emailInput = document.getElementById('loginEmail') || 
-                     document.getElementById('email') || 
-                     document.querySelector('input[type="email"]');
-                       
-    let passwordInput = document.getElementById('loginPassword') || 
-                        document.getElementById('password') || 
-                        document.querySelector('input[type="password"]');
-                          
-    const errorMessage = document.getElementById('loginErrorMessage') || 
-                         document.querySelector('.error-message');
+    const emailInput = document.getElementById('loginEmail') || document.querySelector('input[type="email"]');
+    const passwordInput = document.getElementById('loginPassword') || document.querySelector('input[type="password"]');
+    const errorMessage = document.getElementById('loginErrorMessage') || document.querySelector('.error-message');
     
-    // Si aun así no los encuentra por identificador, agarra los primeros inputs del formulario
-    const fallbackInputs = document.querySelectorAll('form input');
-    if (!emailInput && fallbackInputs.length > 0) emailInput = fallbackInputs[0];
-    if (!passwordInput && fallbackInputs.length > 1) passwordInput = fallbackInputs[1];
-
     if (!emailInput || !passwordInput) {
-        alert("No se pudieron detectar los campos de texto para iniciar sesión en tu formulario HTML.");
+        alert("Error: No se encontraron los campos de email o contraseña en el HTML.");
         return;
     }
 
@@ -67,15 +52,12 @@ async function doLogin(event) {
             throw new Error(result.error || 'Credenciales inválidas');
         }
 
-        // Guardamos de forma global el usuario retornado
         currentUser = result.user;
         localStorage.setItem('micronation_user', JSON.stringify(currentUser));
-        
-        // Cambiar de pantalla e inicializar datos
         showMainInterface();
 
     } catch (error) {
-        console.error('❌ Error en el Login:', error.message);
+        console.error('Error en el Login:', error.message);
         if (errorMessage) {
             errorMessage.textContent = error.message;
         } else {
@@ -84,7 +66,6 @@ async function doLogin(event) {
     }
 }
 
-// Ocultar sesión al salir
 function doSignOut() {
     currentUser = null;
     localStorage.removeItem('micronation_user');
@@ -99,16 +80,13 @@ function showMainInterface() {
     const appSection = document.getElementById('appSection') || document.querySelector('.app-container') || document.getElementById('wrapper');
     const userNameDisplay = document.getElementById('userNameDisplay') || document.querySelector('.user-name');
 
-    // Intento adaptativo para ocultar el login y mostrar el panel principal si los IDs varían
     if (loginSection) loginSection.style.display = 'none';
     if (appSection) appSection.style.display = 'block';
     if (userNameDisplay && currentUser) userNameDisplay.textContent = currentUser.name;
 
-    // Si tu HTML usa clases para ocultar/mostrar (como 'hidden' de Tailwind o Bootstrap)
     if (loginSection) loginSection.classList.add('hidden');
     if (appSection) appSection.classList.remove('hidden');
 
-    // Cargar los registros existentes en la tabla del panel principal
     loadRecords();
 }
 
@@ -124,7 +102,7 @@ function showLoginInterface() {
 }
 
 // ==========================================
-// VEHICULAR REGISTROS DE SUPABASE (TABLA PRINCIPAL)
+// VEHICULAR REGISTROS DE SUPABASE
 // ==========================================
 async function loadRecords() {
     const recordsTableBody = document.getElementById('recordsTableBody') || document.querySelector('tbody');
@@ -133,7 +111,7 @@ async function loadRecords() {
     try {
         const response = await fetch(`${API_URL}/api/records`, {
             method: 'GET',
-            credentials: 'include' // Obligatorio para leer cookies de sesión en Render
+            credentials: 'include'
         });
 
         if (response.status === 401) {
@@ -151,7 +129,6 @@ async function loadRecords() {
 
         records.forEach(rec => {
             const tr = document.createElement('tr');
-            // Adaptar dinámicamente si data viene formateado como objeto o texto plano
             const recordData = typeof rec.data === 'string' ? JSON.parse(rec.data) : rec.data;
             const previewText = Object.values(recordData || {}).slice(0, 2).join(' - ') || 'Registro vacío';
             const dateStr = new Date(rec.created_at).toLocaleDateString();
@@ -173,14 +150,14 @@ async function loadRecords() {
 }
 
 // ==========================================
-// VENTANA MODAL COMPLETA CON RESGUARDO DINÁMICO
+// VENTANA MODAL CON RESGUARDO DINÁMICO
 // ==========================================
 function openNewRecordModal() {
     const modal = document.getElementById('newRecordModal') || document.querySelector('.modal');
-    let formContainer = document.getElementById('modalFormContainer') || document.querySelector('.modal-body');
+    const formContainer = document.getElementById('modalFormContainer') || document.querySelector('.modal-body');
     
     if (!modal || !formContainer) {
-        console.error("❌ Estructura HTML de la modal o el contenedor de campos no fue encontrada.");
+        console.error("Estructura HTML de la modal o el contenedor no fue encontrada.");
         return;
     }
 
@@ -197,9 +174,7 @@ function openNewRecordModal() {
         }
     }
 
-    // SEGURO ANTIBLANCO ADAPTADO: Si Supabase no tiene campos, dibuja estos de auxilio
     if (!campos || campos.length === 0) {
-        console.warn("⚠️ No se detectaron campos guardados en Supabase. Cargando campos base.");
         campos = [
             { name: 'nombre_completo', label: 'Nombre Completo', type: 'text', required: true },
             { name: 'documento_identidad', label: 'Documento / DNI', type: 'text', required: true },
@@ -229,65 +204,70 @@ function openNewRecordModal() {
                 id="input_field_${inputName}"
                 ${requiredAttr} 
                 style="padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; width: 100%; box-sizing: border-box;"
-/>
-`;
-formContainer.appendChild(fieldGroup);
-});
-modal.style.display = 'flex';modal.classList.add('show');
+            />
+        `;
+        formContainer.appendChild(fieldGroup);
+    });
+
+    modal.style.display = 'flex';
+    modal.classList.add('show');
 }
 
 function closeNewRecordModal() {
-    const modal = document.getElementById('newRecordModal') ||
-     document.querySelector('.modal');
-     if (modal) {
+    const modal = document.getElementById('newRecordModal') || document.querySelector('.modal');
+    if (modal) {
         modal.style.display = 'none';
         modal.classList.remove('show');
     }
-}// Guardar el registro enviado por la modal
+}
+
 async function saveRecord(event) {
     if (event) event.preventDefault();
-    const formContainer = document.getElementById('modalFormContainer') ||
-     document.querySelector('.modal-body');
-     const inputs = formContainer.querySelectorAll('input, select, textarea');
-     const payloadData = {};
-     inputs.forEach(input => {if (input.name) {payloadData[input.name] = input.value;
-    }
-});
 
-try {
-    const response = await fetch(${API_URL}/api/records, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ data: payloadData })
+    const formContainer = document.getElementById('modalFormContainer') || document.querySelector('.modal-body');
+    const inputs = formContainer.querySelectorAll('input, select, textarea');
+    
+    const payloadData = {};
+    inputs.forEach(input => {
+        if (input.name) {
+            payloadData[input.name] = input.value;
+        }
     });
-    const result = await response.json();
-    if (!response.ok) throw new Error(result.error ||
-         'Error al guardar');alert('✅ Registro guardado perfectamente en Supabase.');
-         closeNewRecordModal();
-         loadRecords();
 
-         } catch (error) {
-            alert('Hubo un problema: ' + error.message);
-            }
-            }
+    try {
+        const response = await fetch(`${API_URL}/api/records`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include', 
+            body: JSON.stringify({ data: payloadData })
+        });
 
-            // Eliminar un registro específico
-            async function deleteRecord(id) {
-                if (!confirm('¿Seguro que deseas eliminar este registro?')) return;
-                try {
-                    const response = await fetch(${API_URL}/api/records/${id}, {
-                        method: 'DELETE',
-                        credentials: 'include'
-                        });
-                        if (response.ok) {
-                            loadRecords();
-                            } else {
-                                const err = await response.json();
-                                alert(err.error || 'Error al eliminar');
-                                }
-                                } catch (e) {
-                                    alert(e.message);
-                                    }
-                                    }
-                                
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || 'Error al guardar');
+
+        alert('✅ Registro guardado perfectamente en Supabase.');
+        closeNewRecordModal();
+        loadRecords();
+
+    } catch (error) {
+        alert('Hubo un problema: ' + error.message);
+    }
+}
+
+async function deleteRecord(id) {
+    if (!confirm('¿Seguro que deseas eliminar este registro?')) return;
+    try {
+        const response = await fetch(`${API_URL}/api/records/${id}`, {
+            method: 'DELETE',
+            credentials: 'include'
+            });
+            if (response.ok) {
+                loadRecords();
+                } else {
+                    const err = await response.json();
+                    alert(err.error || 'Error al eliminar');
+                    }
+                    } catch (e) {
+                        alert(e.message);
+                        }
+                        }
