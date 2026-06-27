@@ -7,8 +7,8 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/style.css">
-  <!-- JsBarcode for barcode generation -->
-  <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
+  <!-- QR Code generation -->
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
   <style>
     body{background:var(--bg);display:flex;align-items:flex-start;justify-content:center;padding:48px 16px;min-height:100vh}
     .join-wrap{width:100%;max-width:480px}
@@ -70,8 +70,8 @@
           <div class="citizen-lbl">Citizen number</div>
           <div class="citizen-num" id="citizen-num">#—</div>
           <div class="barcode-wrap">
-            <svg id="barcode"></svg>
-            <div class="barcode-hint">Save or screenshot this code — it proves your citizenship</div>
+            <canvas id="qrcode"></canvas>
+            <div class="barcode-hint">Save or screenshot this QR — it proves your citizenship</div>
             <button class="download-btn" onclick="downloadBarcode()"><i class="ti ti-download" style="font-size:13px"></i> Save barcode</button>
           </div>
         </div>
@@ -166,14 +166,10 @@ async function submitForm(){
     document.getElementById('citizen-num').textContent='#'+numStr;
 
     // Generate barcode from record ID
-    JsBarcode('#barcode', result.id, {
-      format:'CODE128',
-      width:2,
-      height:60,
-      displayValue:false,
-      margin:8,
-      background:'#ffffff',
-      lineColor:'#1A1A19'
+    QRCode.toCanvas(document.getElementById('qrcode'), result.id, {
+      width: 180,
+      margin: 2,
+      color: { dark: '#1A1A19', light: '#ffffff' }
     });
 
     document.getElementById('join-content').style.display='none';
@@ -185,25 +181,11 @@ async function submitForm(){
 }
 
 function downloadBarcode(){
-  const svg=document.getElementById('barcode');
-  const serializer=new XMLSerializer();
-  const svgStr=serializer.serializeToString(svg);
-  const canvas=document.createElement('canvas');
-  const img=new Image();
-  const blob=new Blob([svgStr],{type:'image/svg+xml'});
-  const url=URL.createObjectURL(blob);
-  img.onload=function(){
-    canvas.width=img.width;canvas.height=img.height;
-    const ctx=canvas.getContext('2d');
-    ctx.fillStyle='white';ctx.fillRect(0,0,canvas.width,canvas.height);
-    ctx.drawImage(img,0,0);
-    const a=document.createElement('a');
-    a.download='citizen-barcode.png';
-    a.href=canvas.toDataURL('image/png');
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-  img.src=url;
+  const canvas=document.getElementById('qrcode');
+  const a=document.createElement('a');
+  a.download='citizen-qr.png';
+  a.href=canvas.toDataURL('image/png');
+  a.click();
 }
 
 function showError(){

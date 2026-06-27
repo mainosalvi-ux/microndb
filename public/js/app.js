@@ -378,40 +378,35 @@ async function deleteDoc(id){
 }
 
 // ── SCANNER ───────────────────────────────────────
+let html5QrScanner = null;
+
 function startScanner(){
   document.getElementById('scanner-idle').style.display='none';
   document.getElementById('scanner-box').style.display='block';
   document.getElementById('scan-result').style.display='none';
 
-  Quagga.init({
-    inputStream:{
-      name:'Live',
-      type:'LiveStream',
-      target:document.getElementById('scanner-viewport'),
-      constraints:{facingMode:'environment',width:640,height:480}
-    },
-    decoder:{readers:['code_128_reader']},
-    locate:true,
-  }, err=>{
-    if(err){showToast('Camera error: '+err.message,'err');stopScanner();return}
-    Quagga.start();
-    scannerRunning=true;
-  });
-
-  Quagga.onDetected(result=>{
-    const code=result.codeResult.code;
-    if(code){
+  html5QrScanner = new Html5Qrcode('scanner-viewport');
+  html5QrScanner.start(
+    {facingMode:'environment'},
+    {fps:10, qrbox:{width:220,height:220}},
+    code => {
       stopScanner();
       verifyCitizen(code);
-    }
+    },
+    err => {}
+  ).catch(err=>{
+    showToast('Camera error: '+err,'err');
+    stopScanner();
   });
+  scannerRunning=true;
 }
 
 function stopScanner(){
-  if(scannerRunning){
-    try{Quagga.stop()}catch(e){}
-    scannerRunning=false;
+  if(html5QrScanner && scannerRunning){
+    html5QrScanner.stop().catch(()=>{});
+    html5QrScanner = null;
   }
+  scannerRunning=false;
   const box=document.getElementById('scanner-box');
   const idle=document.getElementById('scanner-idle');
   if(box) box.style.display='none';
