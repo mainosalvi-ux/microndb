@@ -70,7 +70,7 @@
           <div class="citizen-lbl">Citizen number</div>
           <div class="citizen-num" id="citizen-num">#—</div>
           <div class="barcode-wrap">
-            <canvas id="qrcode"></canvas>
+            <img id="qrcode" style="width:200px;height:200px;display:block;margin:0 auto">
             <div class="barcode-hint">Save or screenshot this QR — it proves your citizenship</div>
             <button class="download-btn" onclick="downloadBarcode()"><i class="ti ti-download" style="font-size:13px"></i> Save barcode</button>
           </div>
@@ -192,23 +192,24 @@ async function submitForm(){
   document.getElementById('join-content').style.display='none';
   document.getElementById('success-content').style.display='block';
 
-  // Generate QR after screen is visible (canvas needs to be in DOM)
+  // Generate QR as data URL and set as img src
   try{
-    await QRCode.toCanvas(document.getElementById('qrcode'), result.id, {
+    const url = await QRCode.toDataURL(result.id, {
       width: 200,
       margin: 2,
       color: { dark: '#1A1A19', light: '#ffffff' }
     });
+    document.getElementById('qrcode').src = url;
   }catch(qrErr){
     console.error('QR error:', qrErr);
   }
 }
 
 function downloadBarcode(){
-  const canvas=document.getElementById('qrcode');
+  const img=document.getElementById('qrcode');
   const a=document.createElement('a');
   a.download='citizen-qr.png';
-  a.href=canvas.toDataURL('image/png');
+  a.href=img.src;
   a.click();
 }
 
