@@ -1,15 +1,22 @@
 const express = require('express');
 const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
-const { query } = require('../db');
-const { requireAuth } = require('./auth');
+const { pool } = require('../db'); // Conexión central a tu archivo db.js
+
+// Middleware integrado directamente para evitar dependencias indefinidas
+function requireAuth(req, res, next) {
+  if (req.session && req.session.userId) {
+    return next();
+  }
+  return res.status(401).json({ error: 'Sesión no iniciada o expirada.' });
+}
 
 // GET /api/records
 router.get('/', requireAuth, async (req, res) => {
   try {
-    const { rows: [user] } = await query('SELECT nation_id FROM users WHERE id = $1', [req.session.userId]);
+    const { rows: [user] } = await pool.query('SELECT nation_id FROM users WHERE id = $1', [req.session.userId]);
     if (!user?.nation_id) return res.json([]);
-    const { rows } = await query(
+    const { rows } = await pool.query(
       'SELECT * FROM records WHERE nation_id = $1 ORDER BY created_at DESC',
       [user.nation_id]
     );
@@ -20,12 +27,12 @@ router.get('/', requireAuth, async (req, res) => {
 // POST /api/records
 router.post('/', requireAuth, async (req, res) => {
   try {
-    const { rows: [user] } = await query('SELECT nation_id FROM users WHERE id = $1', [req.session.userId]);
+    const { rows: [user] } = await pool.query('SELECT nation_id FROM users WHERE id = $1', [req.session.userId]);
     if (!user?.nation_id) return res.status(403).json({ error: 'No nation assigned' });
     const { data } = req.body;
     if (!data) return res.status(400).json({ error: 'Data required' });
     const id = uuidv4();
-    await query(
+    await pool.query(
       'INSERT INTO records (id, nation_id, data, source) VALUES ($1, $2, $3, $4)',
       [id, user.nation_id, JSON.stringify(data), 'user']
     );
@@ -36,11 +43,11 @@ router.post('/', requireAuth, async (req, res) => {
 // PUT /api/records/:id
 router.put('/:id', requireAuth, async (req, res) => {
   try {
-    const { rows: [user] } = await query('SELECT nation_id FROM users WHERE id = $1', [req.session.userId]);
-    const { rows: [record] } = await query('SELECT * FROM records WHERE id = $1', [req.params.id]);
+    const { rows: [user] } = await pool.query('SELECT nation_id FROM users WHERE id = $1', [req.session.userId]);
+    const { rows: [record] } = await pool.query('SELECT * FROM records WHERE id = $1', [req.params.id]);
     if (!record) return res.status(404).json({ error: 'Not found' });
     if (record.nation_id !== user?.nation_id) return res.status(403).json({ error: 'Forbidden' });
-    await query(
+    await pool.query(
       'UPDATE records SET data = $1, updated_at = NOW() WHERE id = $2',
       [JSON.stringify(req.body.data), record.id]
     );
@@ -51,11 +58,11 @@ router.put('/:id', requireAuth, async (req, res) => {
 // DELETE /api/records/:id
 router.delete('/:id', requireAuth, async (req, res) => {
   try {
-    const { rows: [user] } = await query('SELECT nation_id FROM users WHERE id = $1', [req.session.userId]);
-    const { rows: [record] } = await query('SELECT * FROM records WHERE id = $1', [req.params.id]);
+    const { rows: [user] } = await pool.query('SELECT nation_id FROM users WHERE id = $1', [req.session.userId]);
+    const { rows: [record] } = await pool.query('SELECT * FROM records WHERE id = $1', [req.params.id]);
     if (!record) return res.status(404).json({ error: 'Not found' });
     if (record.nation_id !== user?.nation_id) return res.status(403).json({ error: 'Forbidden' });
-    await query('DELETE FROM records WHERE id = $1', [record.id]);
+    await pool.query('DELETE FROM records WHERE id = $1', [record.id]);
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
