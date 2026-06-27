@@ -263,7 +263,7 @@ function renderUserRecords(){
       <div class="record-avatar" style="background:${c.bg};color:${c.txt}">${initials}</div>
       <div class="record-body">
         <div class="record-title">${esc(title)} ${badge}</div>
-        <div class="record-meta">${meta||'&nbsp;'}</div>
+        <div class="record-meta">${meta||fmtDate(r.created_at)}</div>
       </div>
       <div class="record-actions">
         <button class="btn icon sm" onclick="event.stopPropagation();openEditRecord('${r.id}')"><i class="ti ti-edit"></i></button>
