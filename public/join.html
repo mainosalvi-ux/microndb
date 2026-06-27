@@ -102,13 +102,12 @@ function render(){
   icon.textContent=nation.name[0].toUpperCase();
   document.getElementById('nation-name').textContent=nation.name;
   document.title='Join '+nation.name;
-  
-  // Filtrar los campos para omitir tipos 'number' y 'date'
-  const fields=(nation.fields||[]).filter(f => f.type !== 'number' && f.type !== 'date');
-  
+  const fields=nation.fields||[];
   document.getElementById('join-form').innerHTML=fields.map(f=>{
     let inp='';
     if(f.type==='boolean') inp=`<select id="jf-${esc(f.name)}"><option value="">(select)</option><option value="true">Yes</option><option value="false">No</option></select>`;
+    else if(f.type==='number') inp=`<input type="number" id="jf-${esc(f.name)}" placeholder="0">`;
+    else if(f.type==='date') inp=`<input type="date" id="jf-${esc(f.name)}">`;
     else if(f.type==='email') inp=`<input type="email" id="jf-${esc(f.name)}" placeholder="you@email.com">`;
     else inp=`<input type="text" id="jf-${esc(f.name)}" placeholder="${esc(f.name)}">`;
     return`<div class="form-group"><label>${esc(f.name)}</label>${inp}</div>`;
@@ -118,12 +117,12 @@ function render(){
 }
 
 async function submitForm(){
-  // Filtrar también al enviar el formulario
-  const fields=(nation?.fields||[]).filter(f => f.type !== 'number' && f.type !== 'date');
+  const fields=nation?.fields||[];
   const data={};
   for(const f of fields){
     const el=document.getElementById('jf-'+f.name);if(!el)continue;
-    if(f.type==='boolean') data[f.name]=el.value===''?null:el.value==='true';
+    if(f.type==='number') data[f.name]=el.value===''?'':Number(el.value);
+    else if(f.type==='boolean') data[f.name]=el.value===''?null:el.value==='true';
     else data[f.name]=el.value;
   }
   const err=document.getElementById('join-err');

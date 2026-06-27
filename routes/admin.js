@@ -3,15 +3,8 @@ const router = express.Router();
 const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
 const crypto = require('crypto');
-const { pool } = require('../db'); // Conexión central a Supabase
-
-// Middleware integrado directamente aquí para evitar errores de importación 'undefined'
-function requireAdmin(req, res, next) {
-  if (req.session && req.session.role === 'admin') {
-    return next();
-  }
-  return res.status(403).json({ error: 'Acceso denegado: Se requieren permisos de administrador' });
-}
+const { query } = require('../db');
+const { requireAdmin } = require('./auth');
 
 function genToken() {
   return crypto.randomBytes(16).toString('hex');
@@ -20,10 +13,10 @@ function genToken() {
 // GET /api/admin/users
 router.get('/users', requireAdmin, async (req, res) => {
   try {
-    const { rows: users } = await pool.query(
+    const { rows: users } = await query(
       "SELECT id, name, email, role, nation_id, created_at FROM users WHERE role != 'admin'"
     );
-    const { rows: nations } = await pool.query('SELECT * FROM nations');
+    const { rows: nations } = await query('SELECT * FROM nations');
     const nationMap = Object.fromEntries(nations.map(n => [n.id, n]));
     res.json(users.map(u => ({ ...u, nation: u.nation_id ? nationMap[u.nation_id] : null })));
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -35,20 +28,20 @@ router.post('/users', requireAdmin, async (req, res) => {
   if (!name || !email || !password || !nationName || !fields?.length)
     return res.status(400).json({ error: 'All fields required' });
   try {
-    const { rows: ex } = await pool.query('SELECT id FROM users WHERE email = $1', [email.toLowerCase().trim()]);
+    const { rows: ex } = await query('SELECT id FROM users WHERE email = $1', [email.toLowerCase().trim()]);
     if (ex.length) return res.status(409).json({ error: 'Email already registered' });
 
-    const { rows: nc } = await pool.query('SELECT COUNT(*) as c FROM nations');
-    const colorIdx = parseInt(nc[0]?.c || 0) % 8;
+    const { rows: nc } = await query('SELECT COUNT(*) as c FROM nations');
+    const colorIdx = parseInt(nc[0].c) % 8;
     const nationId = uuidv4();
     const token = genToken();
 
-    await pool.query(
+    await query(
       'INSERT INTO nations (id, name, color_idx, fields, join_token) VALUES ($1, $2, $3, $4, $5)',
       [nationId, nationName, colorIdx, JSON.stringify(fields), token]
     );
     const userId = uuidv4();
-    await pool.query(
+    await query(
       'INSERT INTO users (id, name, email, password, role, nation_id) VALUES ($1, $2, $3, $4, $5, $6)',
       [userId, name, email.toLowerCase().trim(), bcrypt.hashSync(password, 10), 'user', nationId]
     );
@@ -60,13 +53,13 @@ router.post('/users', requireAdmin, async (req, res) => {
 router.put('/users/:id', requireAdmin, async (req, res) => {
   const { name, password, nationName, fields } = req.body;
   try {
-    const { rows } = await pool.query('SELECT * FROM users WHERE id = $1', [req.params.id]);
+    const { rows } = await query('SELECT * FROM users WHERE id = $1', [req.params.id]);
     const user = rows[0];
     if (!user) return res.status(404).json({ error: 'User not found' });
-    if (name) await pool.query('UPDATE users SET name = $1 WHERE id = $2', [name, user.id]);
-    if (password) await pool.query('UPDATE users SET password = $1 WHERE id = $2', [bcrypt.hashSync(password, 10), user.id]);
-    if (nationName && user.nation_id) await pool.query('UPDATE nations SET name = $1 WHERE id = $2', [nationName, user.nation_id]);
-    if (fields && user.nation_id) await pool.query('UPDATE nations SET fields = $1 WHERE id = $2', [JSON.stringify(fields), user.nation_id]);
+    if (name) await query('UPDATE users SET name = $1 WHERE id = $2', [name, user.id]);
+    if (password) await query('UPDATE users SET password = $1 WHERE id = $2', [bcrypt.hashSync(password, 10), user.id]);
+    if (nationName && user.nation_id) await query('UPDATE nations SET name = $1 WHERE id = $2', [nationName, user.nation_id]);
+    if (fields && user.nation_id) await query('UPDATE nations SET fields = $1 WHERE id = $2', [JSON.stringify(fields), user.nation_id]);
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -74,40 +67,41 @@ router.put('/users/:id', requireAdmin, async (req, res) => {
 // DELETE /api/admin/users/:id
 router.delete('/users/:id', requireAdmin, async (req, res) => {
   try {
-    const { rows } = await pool.query('SELECT * FROM users WHERE id = $1', [req.params.id]);
+    const { rows } = await query('SELECT * FROM users WHERE id = $1', [req.params.id]);
     const user = rows[0];
     if (!user) return res.status(404).json({ error: 'User not found' });
     if (user.nation_id) {
-      await pool.query('DELETE FROM records WHERE nation_id = $1', [user.nation_id]);
-      await pool.query('DELETE FROM documents WHERE nation_id = $1', [user.nation_id]);
-      await pool.query('DELETE FROM nations WHERE id = $1', [user.nation_id]);
+      await query('DELETE FROM records WHERE nation_id = $1', [user.nation_id]);
+      await query('DELETE FROM documents WHERE nation_id = $1', [user.nation_id]);
+      await query('DELETE FROM nations WHERE id = $1', [user.nation_id]);
     }
-    await pool.query('DELETE FROM users WHERE id = $1', [user.id]);
+    await query('DELETE FROM users WHERE id = $1', [user.id]);
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// GET /api/admin/stats
+// GET /api/admin/stats — NO record listing, just numbers
 router.get('/stats', requireAdmin, async (req, res) => {
   try {
-    const { rows: [nc] } = await pool.query('SELECT COUNT(*) as c FROM nations');
-    const { rows: [uc] } = await pool.query("SELECT COUNT(*) as c FROM users WHERE role != 'admin'");
-    const { rows: [rc] } = await pool.query('SELECT COUNT(*) as c FROM records');
-    const { rows: [cc] } = await pool.query("SELECT COUNT(*) as c FROM records WHERE source = 'citizen'");
+    const { rows: [nc] } = await query('SELECT COUNT(*) as c FROM nations');
+    const { rows: [uc] } = await query("SELECT COUNT(*) as c FROM users WHERE role != 'admin'");
+    const { rows: [rc] } = await query('SELECT COUNT(*) as c FROM records');
+    const { rows: [cc] } = await query("SELECT COUNT(*) as c FROM records WHERE source = 'citizen'");
     res.json({
-      nations: parseInt(nc?.c || 0),
-      users: parseInt(uc?.c || 0),
-      records: parseInt(rc?.c || 0),
-      citizens: parseInt(cc?.c || 0),
+      nations: parseInt(nc.c),
+      users: parseInt(uc.c),
+      records: parseInt(rc.c),
+      citizens: parseInt(cc.c),
     });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// GET /api/admin/nations
+// GET /api/admin/nations — nation list with join links, NO records
 router.get('/nations', requireAdmin, async (req, res) => {
   try {
-    const { rows: nations } = await pool.query('SELECT * FROM nations ORDER BY created_at ASC');
-    const { rows: counts } = await pool.query(`
+    const { rows: nations } = await query('SELECT * FROM nations ORDER BY created_at ASC');
+    // Just counts per nation, not full records
+    const { rows: counts } = await query(`
       SELECT nation_id,
         COUNT(*) as total,
         COUNT(*) FILTER (WHERE source = 'citizen') as citizens
@@ -126,7 +120,7 @@ router.get('/nations', requireAdmin, async (req, res) => {
 router.post('/nations/:id/regen-token', requireAdmin, async (req, res) => {
   try {
     const token = genToken();
-    await pool.query('UPDATE nations SET join_token = $1 WHERE id = $2', [token, req.params.id]);
+    await query('UPDATE nations SET join_token = $1 WHERE id = $2', [token, req.params.id]);
     res.json({ ok: true, joinToken: token });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });

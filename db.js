@@ -7,37 +7,10 @@ const pool = new Pool({
     : false,
 });
 
-// Función query interceptora y adaptadora global para el Frontend
 async function query(text, params) {
   const client = await pool.connect();
   try {
     const res = await client.query(text, params);
-    
-    // NORMALIZACIÓN ROBUSTA: Convertimos a objeto real si viene como texto,
-    // garantizando que el frontend reciba datos estructurados listos para iterar.
-    if (res.rows && res.rows.length > 0) {
-      res.rows.forEach(row => {
-        if (row) {
-          // 1. Parche para la configuración de la nación
-          if (row.fields !== undefined && typeof row.fields === 'string') {
-            try {
-              row.fields = JSON.parse(row.fields);
-            } catch (e) {
-              row.fields = [];
-            }
-          }
-          // 2. Parche para el contenido de los formularios/registros
-          if (row.data !== undefined && typeof row.data === 'string') {
-            try {
-              row.data = JSON.parse(row.data);
-            } catch (e) {
-              row.data = {};
-            }
-          }
-        }
-      });
-    }
-    
     return res;
   } finally {
     client.release();
@@ -88,6 +61,7 @@ async function initSchema() {
     );
   `);
 
+  // Auto-increment citizen number per nation via sequence-like trigger
   await query(`
     CREATE OR REPLACE FUNCTION set_citizen_number()
     RETURNS TRIGGER AS $$
