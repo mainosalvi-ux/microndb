@@ -5,6 +5,7 @@ const API_URL = '';
 let currentUser = null;
 
 document.addEventListener('DOMContentLoaded', () => {
+    // 1. Intentar recuperar la sesión guardada
     const savedUser = localStorage.getItem('micronation_user');
     if (savedUser) {
         try {
@@ -16,6 +17,18 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     } else {
         showLoginInterface();
+    }
+
+    // 2. PARCHE AUTO-CLICK: Forzamos al JS a escuchar el formulario de login directamente
+    const loginForm = document.querySelector('form') || document.getElementById('loginForm');
+    if (loginForm) {
+        loginForm.addEventListener('submit', doLogin);
+    }
+
+    // Si tu botón de login no está adentro de un formulario, le asignamos el click directo
+    const loginBtn = document.querySelector('button') || document.getElementById('loginBtn') || document.querySelector('.btn-login');
+    if (loginBtn) {
+        loginBtn.addEventListener('click', doLogin);
     }
 });
 
@@ -90,6 +103,7 @@ function showMainInterface() {
     loadRecords();
 }
 
+// Asegurarse de que el login esté visible si no hay sesión
 function showLoginInterface() {
     const loginSection = document.getElementById('loginSection') || document.querySelector('.login-container') || document.querySelector('form');
     const appSection = document.getElementById('appSection') || document.querySelector('.app-container') || document.getElementById('wrapper');
@@ -238,36 +252,40 @@ async function saveRecord(event) {
         const response = await fetch(`${API_URL}/api/records`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            credentials: 'include', 
-            body: JSON.stringify({ data: payloadData })
-        });
+            credentials: 'include',
+body: JSON.stringify({ data: payloadData })
+});
 
-        const result = await response.json();
-        if (!response.ok) throw new Error(result.error || 'Error al guardar');
+const result = await response.json();
 
-        alert('✅ Registro guardado perfectamente en Supabase.');
-        closeNewRecordModal();
-        loadRecords();
+if (!response.ok)
+    throw new Error(result.error || 'Error al guardar');
 
-    } catch (error) {
-        alert('Hubo un problema: ' + error.message);
-    }
+alert('✅ Registro guardado perfectamente en Supabase.');
+
+closeNewRecordModal();
+loadRecords();
+
+} catch (error) {
+    alert('Hubo un problema: ' + error.message);
 }
 
 async function deleteRecord(id) {
     if (!confirm('¿Seguro que deseas eliminar este registro?')) return;
+
     try {
         const response = await fetch(`${API_URL}/api/records/${id}`, {
             method: 'DELETE',
             credentials: 'include'
-            });
-            if (response.ok) {
-                loadRecords();
-                } else {
-                    const err = await response.json();
-                    alert(err.error || 'Error al eliminar');
-                    }
-                    } catch (e) {
-                        alert(e.message);
-                        }
-                        }
+        });
+
+        if (response.ok) {
+            loadRecords();
+        } else {
+            const err = await response.json();
+            alert(err.error || 'Error al eliminar');
+        }
+    } catch (e) {
+        alert(e.message);
+    }
+}
