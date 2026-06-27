@@ -7,10 +7,22 @@ const pool = new Pool({
     : false,
 });
 
+// Función query interceptora y adaptadora global para el Frontend
 async function query(text, params) {
   const client = await pool.connect();
   try {
     const res = await client.query(text, params);
+    
+    // PARCHE GLOBAL: Si la consulta devuelve filas con la columna 'fields', 
+    // las convertimos a texto para que el JSON.parse del Frontend no rompa la interfaz
+    if (res.rows && res.rows.length > 0) {
+      res.rows.forEach(row => {
+        if (row && row.fields !== undefined && typeof row.fields === 'object' && row.fields !== null) {
+          row.fields = JSON.stringify(row.fields);
+        }
+      });
+    }
+    
     return res;
   } finally {
     client.release();
@@ -61,7 +73,6 @@ async function initSchema() {
     );
   `);
 
-  // Auto-increment citizen number per nation via sequence-like trigger
   await query(`
     CREATE OR REPLACE FUNCTION set_citizen_number()
     RETURNS TRIGGER AS $$
