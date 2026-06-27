@@ -3,8 +3,15 @@ const router = express.Router();
 const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
 const crypto = require('crypto');
-const { pool } = require('../db'); // Conexión a tu Pool de Supabase
-const { requireAdmin } = require('./auth'); // Middleware importado correctamente
+const { pool } = require('../db'); // Conexión central a Supabase
+
+// Middleware integrado directamente aquí para evitar errores de importación 'undefined'
+function requireAdmin(req, res, next) {
+  if (req.session && req.session.role === 'admin') {
+    return next();
+  }
+  return res.status(403).json({ error: 'Acceso denegado: Se requieren permisos de administrador' });
+}
 
 function genToken() {
   return crypto.randomBytes(16).toString('hex');
@@ -32,7 +39,7 @@ router.post('/users', requireAdmin, async (req, res) => {
     if (ex.length) return res.status(409).json({ error: 'Email already registered' });
 
     const { rows: nc } = await pool.query('SELECT COUNT(*) as c FROM nations');
-    const colorIdx = parseInt(nc[0].c) % 8;
+    const colorIdx = parseInt(nc[0]?.c || 0) % 8;
     const nationId = uuidv4();
     const token = genToken();
 
@@ -72,7 +79,7 @@ router.delete('/users/:id', requireAdmin, async (req, res) => {
     if (!user) return res.status(404).json({ error: 'User not found' });
     if (user.nation_id) {
       await pool.query('DELETE FROM records WHERE nation_id = $1', [user.nation_id]);
-      await query('DELETE FROM documents WHERE nation_id = $1', [user.nation_id]);
+      await pool.query('DELETE FROM documents WHERE nation_id = $1', [user.nation_id]);
       await pool.query('DELETE FROM nations WHERE id = $1', [user.nation_id]);
     }
     await pool.query('DELETE FROM users WHERE id = $1', [user.id]);
@@ -88,10 +95,10 @@ router.get('/stats', requireAdmin, async (req, res) => {
     const { rows: [rc] } = await pool.query('SELECT COUNT(*) as c FROM records');
     const { rows: [cc] } = await pool.query("SELECT COUNT(*) as c FROM records WHERE source = 'citizen'");
     res.json({
-      nations: parseInt(nc.c),
-      users: parseInt(uc.c),
-      records: parseInt(rc.c),
-      citizens: parseInt(cc.c),
+      nations: parseInt(nc?.c || 0),
+      users: parseInt(uc?.c || 0),
+      records: parseInt(rc?.c || 0),
+      citizens: parseInt(cc?.c || 0),
     });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
