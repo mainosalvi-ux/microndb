@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 const { pool } = require('../db'); // Conexión a tu archivo db.js actual
 
 // Función para crear el administrador en Supabase al iniciar
