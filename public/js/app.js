@@ -22,29 +22,29 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ==========================================
-// AUTENTICACIÓN (LOGIN INTELIGENTE ADAPTATIVO)
+// AUTENTICACIÓN (LOGIN CORREGIDO Y SEGURO)
 // ==========================================
 async function doLogin(event) {
     if (event) event.preventDefault();
     
     // Buscador tolerante de inputs: intenta por ID, sino por tipo nativo del HTML
-    const emailInput = document.getElementById('loginEmail') || 
-                       document.getElementById('email') || 
-                       document.querySelector('input[type="email"]');
+    let emailInput = document.getElementById('loginEmail') || 
+                     document.getElementById('email') || 
+                     document.querySelector('input[type="email"]');
                        
-    const passwordInput = document.getElementById('loginPassword') || 
-                          document.getElementById('password') || 
-                          document.querySelector('input[type="password"]');
+    let passwordInput = document.getElementById('loginPassword') || 
+                        document.getElementById('password') || 
+                        document.querySelector('input[type="password"]');
                           
     const errorMessage = document.getElementById('loginErrorMessage') || 
                          document.querySelector('.error-message');
     
-    // Si aun así no los encuentra, agarra los dos primeros inputs del formulario
+    // Si aun así no los encuentra por identificador, agarra los primeros inputs del formulario
     const fallbackInputs = document.querySelectorAll('form input');
-    const finalEmail = emailInput || fallbackInputs[0];
-    const finalPassword = passwordInput || fallbackInputs[1];
+    if (!emailInput && fallbackInputs.length > 0) emailInput = fallbackInputs[0];
+    if (!passwordInput && fallbackInputs.length > 1) passwordInput = fallbackInputs[1];
 
-    if (!finalEmail || !finalPassword) {
+    if (!emailInput || !passwordInput) {
         alert("No se pudieron detectar los campos de texto para iniciar sesión en tu formulario HTML.");
         return;
     }
@@ -56,8 +56,8 @@ async function doLogin(event) {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                email: finalEmail.value.trim(),
-                password: finalPassword.value
+                email: emailInput.value.trim(),
+                password: passwordInput.value
             })
         });
 
@@ -229,76 +229,65 @@ function openNewRecordModal() {
                 id="input_field_${inputName}"
                 ${requiredAttr} 
                 style="padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; width: 100%; box-sizing: border-box;"
-            />
-        `;
-        formContainer.appendChild(fieldGroup);
-    });
+/>
+`;
+formContainer.appendChild(fieldGroup);
+});
+modal.style.display = 'flex';modal.classList.add('show');
+}
 
-    modal.style.display = 'flex';
-    modal.classList.add('show');
+function closeNewRecordModal() {
+    const modal = document.getElementById('newRecordModal') ||
+     document.querySelector('.modal');
+     if (modal) {
+        modal.style.display = 'none';
+        modal.classList.remove('show');
     }
+}// Guardar el registro enviado por la modal
+async function saveRecord(event) {
+    if (event) event.preventDefault();
+    const formContainer = document.getElementById('modalFormContainer') ||
+     document.querySelector('.modal-body');
+     const inputs = formContainer.querySelectorAll('input, select, textarea');
+     const payloadData = {};
+     inputs.forEach(input => {if (input.name) {payloadData[input.name] = input.value;
+    }
+});
 
-    function closeNewRecordModal() {
-        const modal = document.getElementById('newRecordModal') ||
-         document.querySelector('.modal');
-         if (modal) {
-            modal.style.display = 'none';
-            modal.classList.remove('show');
+try {
+    const response = await fetch(${API_URL}/api/records, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ data: payloadData })
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error ||
+         'Error al guardar');alert('✅ Registro guardado perfectamente en Supabase.');
+         closeNewRecordModal();
+         loadRecords();
+
+         } catch (error) {
+            alert('Hubo un problema: ' + error.message);
             }
             }
 
-            // Guardar el registro enviado por la modal
-            async function saveRecord(event) {
-                if (event) event.preventDefault();
-
-                const formContainer = document.getElementById('modalFormContainer') ||
-                 document.querySelector('.modal-body');
-                 const inputs = formContainer.querySelectorAll('input, select, textarea');
-
-                 const payloadData = {};
-                 inputs.forEach(input => {
-                    if (input.name) {
-                        payloadData[input.name] = input.value;
-                        }
+            // Eliminar un registro específico
+            async function deleteRecord(id) {
+                if (!confirm('¿Seguro que deseas eliminar este registro?')) return;
+                try {
+                    const response = await fetch(${API_URL}/api/records/${id}, {
+                        method: 'DELETE',
+                        credentials: 'include'
                         });
-
-                        try {
-                            const response = await fetch(${API_URL}/api/records, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                credentials: 'include',
-                                body: JSON.stringify({ data: payloadData })
-                                });
-
-                                const result = await response.json();
-                                if (!response.ok) throw new Error(result.error || 'Error al guardar');
-
-                                alert('✅ Registro guardado perfectamente en Supabase.');
-                                closeNewRecordModal();
-                                loadRecords();
-
-                                } catch (error) {
-                                    alert('Hubo un problema: ' + error.message);
+                        if (response.ok) {
+                            loadRecords();
+                            } else {
+                                const err = await response.json();
+                                alert(err.error || 'Error al eliminar');
+                                }
+                                } catch (e) {
+                                    alert(e.message);
                                     }
                                     }
-
-                                    // Eliminar un registro específico
-                                    async function deleteRecord(id) {
-                                        if (!confirm('¿Seguro que deseas eliminar este registro?')) return;
-                                        try {
-                                            const response = await fetch(${API_URL}/api/records/${id}, {
-                                                method: 'DELETE',
-                                                credentials: 'include'
-                                                });
-                                                if (response.ok) {
-                                                    loadRecords();
-                                                    } else {
-                                                        const err = await response.json();
-                                                        alert(err.error || 'Error al eliminar');
-                                                        }
-                                                        } catch (e) {
-                                                            alert(e.message);
-                                                            }
-                                                            }
-
-                                            
+                                
