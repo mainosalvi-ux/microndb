@@ -13,12 +13,19 @@ async function query(text, params) {
   try {
     const res = await client.query(text, params);
     
-    // PARCHE GLOBAL: Si la consulta devuelve filas con la columna 'fields', 
-    // las convertimos a texto para que el JSON.parse del Frontend no rompa la interfaz
+    // PARCHE GLOBAL DEFINITIVO: Formateamos tanto 'fields' como 'data' a texto plano
+    // para evitar que cualquier JSON.parse() del frontend rompa la interfaz visual.
     if (res.rows && res.rows.length > 0) {
       res.rows.forEach(row => {
-        if (row && row.fields !== undefined && typeof row.fields === 'object' && row.fields !== null) {
-          row.fields = JSON.stringify(row.fields);
+        if (row) {
+          // 1. Parche para la configuración de la nación
+          if (row.fields !== undefined && typeof row.fields === 'object' && row.fields !== null) {
+            row.fields = JSON.stringify(row.fields);
+          }
+          // 2. Parche para el contenido de los formularios/registros
+          if (row.data !== undefined && typeof row.data === 'object' && row.data !== null) {
+            row.data = JSON.stringify(row.data);
+          }
         }
       });
     }
