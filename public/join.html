@@ -7,6 +7,8 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/style.css">
+  <!-- JsBarcode for barcode generation -->
+  <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
   <style>
     body{background:var(--bg);display:flex;align-items:flex-start;justify-content:center;padding:48px 16px;min-height:100vh}
     .join-wrap{width:100%;max-width:480px}
@@ -14,13 +16,18 @@
     .nation-icon{width:52px;height:52px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;flex-shrink:0}
     .nation-banner h1{font-size:22px;font-weight:700;letter-spacing:-.4px}
     .nation-banner p{font-size:13px;color:var(--muted);margin-top:2px}
-    .result-box{text-align:center;padding:40px 24px}
-    .result-box i{font-size:48px;margin-bottom:16px;display:block}
-    .result-box h2{font-size:20px;font-weight:600;margin-bottom:8px}
-    .result-box p{font-size:14px;color:var(--muted);margin-bottom:6px}
-    .citizen-card{display:inline-block;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:16px 28px;margin-top:16px;text-align:center}
-    .citizen-num{font-size:36px;font-weight:700;letter-spacing:-.5px}
-    .citizen-lbl{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-top:2px}
+    .result-box{text-align:center;padding:32px 24px}
+    .result-box i.big{font-size:48px;margin-bottom:12px;display:block}
+    .result-box h2{font-size:20px;font-weight:600;margin-bottom:6px}
+    .result-box p{font-size:14px;color:var(--muted);margin-bottom:4px}
+    .citizen-card{background:white;border:1.5px solid var(--border);border-radius:var(--radius);padding:20px 24px;margin-top:18px;text-align:center;box-shadow:0 2px 12px rgba(0,0,0,.06)}
+    .citizen-num{font-size:32px;font-weight:700;letter-spacing:-.5px;margin-bottom:2px}
+    .citizen-lbl{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+    .barcode-wrap{margin-top:16px;padding-top:16px;border-top:1px solid var(--border-light)}
+    .barcode-wrap svg{max-width:100%;height:auto}
+    .barcode-hint{font-size:11px;color:var(--muted);margin-top:6px}
+    .download-btn{display:inline-flex;align-items:center;gap:5px;margin-top:10px;padding:6px 12px;border-radius:var(--border-radius-md);border:1px solid var(--border);background:var(--bg);font-size:12px;cursor:pointer;color:var(--text2)}
+    .download-btn:hover{background:var(--surface)}
   </style>
 </head>
 <body>
@@ -30,7 +37,7 @@
   </div>
   <div id="already-joined" style="display:none">
     <div class="card result-box">
-      <i class="ti ti-check" style="color:#2B7A4B"></i>
+      <i class="ti ti-check big" style="color:#2B7A4B"></i>
       <h2>Already registered</h2>
       <p>You already submitted your registration from this browser.</p>
     </div>
@@ -50,20 +57,31 @@
     <p style="text-align:center;font-size:12px;color:var(--muted);margin-top:14px">Powered by Micronation DB</p>
   </div>
   <div id="success-content" style="display:none">
-    <div class="card result-box">
-      <i class="ti ti-circle-check-filled" style="color:#2B7A4B"></i>
-      <h2>You're in!</h2>
-      <p>Welcome to <strong id="success-nation"></strong>.</p>
-      <p style="font-size:13px;color:var(--muted)">Your registration has been submitted.</p>
-      <div class="citizen-card">
-        <div class="citizen-num" id="citizen-num">#—</div>
-        <div class="citizen-lbl">Citizen number</div>
+    <div class="nation-banner">
+      <div class="nation-icon" id="success-nation-icon"></div>
+      <div><h1 id="success-nation-name">Nation</h1><p>Registration confirmed</p></div>
+    </div>
+    <div class="card">
+      <div class="result-box" style="padding:24px">
+        <i class="ti ti-circle-check-filled big" style="color:#2B7A4B"></i>
+        <h2>Welcome!</h2>
+        <p>Your registration has been submitted.</p>
+        <div class="citizen-card">
+          <div class="citizen-lbl">Citizen number</div>
+          <div class="citizen-num" id="citizen-num">#—</div>
+          <div class="barcode-wrap">
+            <svg id="barcode"></svg>
+            <div class="barcode-hint">Save or screenshot this code — it proves your citizenship</div>
+            <button class="download-btn" onclick="downloadBarcode()"><i class="ti ti-download" style="font-size:13px"></i> Save barcode</button>
+          </div>
+        </div>
       </div>
     </div>
+    <p style="text-align:center;font-size:12px;color:var(--muted);margin-top:14px">Powered by Micronation DB</p>
   </div>
   <div id="error-content" style="display:none">
     <div class="card result-box">
-      <i class="ti ti-alert-circle" style="color:var(--danger)"></i>
+      <i class="ti ti-alert-circle big" style="color:var(--danger)"></i>
       <h2>Invalid link</h2>
       <p style="color:var(--muted)">This registration link doesn't exist or has expired.</p>
     </div>
@@ -72,10 +90,11 @@
 
 <script>
 const COLORS=[{bg:'#E6F1FB',txt:'#0C447C'},{bg:'#E1F5EE',txt:'#085041'},{bg:'#FAEEDA',txt:'#633806'},{bg:'#FBEAF0',txt:'#72243E'},{bg:'#EEEDFE',txt:'#3C3489'},{bg:'#FAECE7',txt:'#712B13'},{bg:'#EAF3DE',txt:'#27500A'},{bg:'#F1EFE8',txt:'#444441'}];
+const BLOCKED=['citizen number','numero de ciudadano','número de ciudadano','fecha','date','joined','join date','fecha de union','fecha de unión','member since'];
 const token=location.pathname.split('/join/')[1]?.split('/')[0];
 let nation=null;
+let citizenId=null;
 
-// One-submission-per-browser check
 const STORAGE_KEY='mnd_joined_'+token;
 if(localStorage.getItem(STORAGE_KEY)){
   document.getElementById('loading').style.display='none';
@@ -86,7 +105,7 @@ function esc(s){return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').
 
 async function load(){
   if(!token){showError();return}
-  if(localStorage.getItem(STORAGE_KEY)) return; // already showing "already joined"
+  if(localStorage.getItem(STORAGE_KEY)) return;
   try{
     const res=await fetch('/api/join/'+token);
     if(!res.ok){showError();return}
@@ -102,7 +121,7 @@ function render(){
   icon.textContent=nation.name[0].toUpperCase();
   document.getElementById('nation-name').textContent=nation.name;
   document.title='Join '+nation.name;
-  const fields=nation.fields||[];
+  const fields=(nation.fields||[]).filter(f=>!BLOCKED.includes(f.name.toLowerCase().trim()));
   document.getElementById('join-form').innerHTML=fields.map(f=>{
     let inp='';
     if(f.type==='boolean') inp=`<select id="jf-${esc(f.name)}"><option value="">(select)</option><option value="true">Yes</option><option value="false">No</option></select>`;
@@ -117,7 +136,7 @@ function render(){
 }
 
 async function submitForm(){
-  const fields=nation?.fields||[];
+  const fields=(nation?.fields||[]).filter(f=>!BLOCKED.includes(f.name.toLowerCase().trim()));
   const data={};
   for(const f of fields){
     const el=document.getElementById('jf-'+f.name);if(!el)continue;
@@ -133,16 +152,58 @@ async function submitForm(){
     const res=await fetch('/api/join/'+token,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({data})});
     const result=await res.json();
     if(!res.ok){err.textContent=result.error;btn.disabled=false;btn.innerHTML='<i class="ti ti-user-check"></i> Register as citizen';return}
-    // Mark as done in this browser
+
     localStorage.setItem(STORAGE_KEY,'1');
-    document.getElementById('success-nation').textContent=nation.name;
-    document.getElementById('citizen-num').textContent='#'+String(result.citizenNumber||'?').padStart(4,'0');
+    citizenId=result.id;
+    const numStr=String(result.citizenNumber||'0').padStart(4,'0');
+
+    // Set success nation icon
+    const c=COLORS[(nation.color_idx||0)%8];
+    const si=document.getElementById('success-nation-icon');
+    si.style.background=c.bg;si.style.color=c.txt;
+    si.textContent=nation.name[0].toUpperCase();
+    document.getElementById('success-nation-name').textContent=nation.name;
+    document.getElementById('citizen-num').textContent='#'+numStr;
+
+    // Generate barcode from record ID
+    JsBarcode('#barcode', result.id, {
+      format:'CODE128',
+      width:2,
+      height:60,
+      displayValue:false,
+      margin:8,
+      background:'#ffffff',
+      lineColor:'#1A1A19'
+    });
+
     document.getElementById('join-content').style.display='none';
     document.getElementById('success-content').style.display='block';
-  }catch{
+  }catch(e){
     err.textContent='Connection error. Please try again.';
     btn.disabled=false;btn.innerHTML='<i class="ti ti-user-check"></i> Register as citizen';
   }
+}
+
+function downloadBarcode(){
+  const svg=document.getElementById('barcode');
+  const serializer=new XMLSerializer();
+  const svgStr=serializer.serializeToString(svg);
+  const canvas=document.createElement('canvas');
+  const img=new Image();
+  const blob=new Blob([svgStr],{type:'image/svg+xml'});
+  const url=URL.createObjectURL(blob);
+  img.onload=function(){
+    canvas.width=img.width;canvas.height=img.height;
+    const ctx=canvas.getContext('2d');
+    ctx.fillStyle='white';ctx.fillRect(0,0,canvas.width,canvas.height);
+    ctx.drawImage(img,0,0);
+    const a=document.createElement('a');
+    a.download='citizen-barcode.png';
+    a.href=canvas.toDataURL('image/png');
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+  img.src=url;
 }
 
 function showError(){

@@ -7,6 +7,8 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/style.css">
+  <!-- Barcode scanner -->
+  <script src="https://cdn.jsdelivr.net/npm/quagga@0.12.1/dist/quagga.min.js"></script>
 </head>
 <body>
 
@@ -64,9 +66,19 @@
       <button class="btn ghost sm" onclick="doLogout()"><i class="ti ti-logout"></i> Sign out</button>
     </div>
   </header>
+
+  <!-- Join link banner -->
+  <div id="join-link-banner" style="display:none;align-items:center;gap:10px;padding:10px 20px;background:#EEF3FF;border-bottom:1px solid #C7D9F8;font-size:13px">
+    <i class="ti ti-link" style="color:#2B47A3"></i>
+    <span style="color:#2B47A3;font-weight:500">Citizen registration link:</span>
+    <span id="join-link-url" style="font-family:monospace;font-size:12px;color:#2B47A3;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
+    <button class="btn sm" onclick="copyJoinLink()"><i class="ti ti-copy"></i> Copy</button>
+  </div>
+
   <div class="user-tabs-bar">
     <button class="user-tab active" onclick="userTab('records',this)"><i class="ti ti-database"></i> Records</button>
     <button class="user-tab" onclick="userTab('docs',this)"><i class="ti ti-files"></i> Documents</button>
+    <button class="user-tab" onclick="userTab('scanner',this)"><i class="ti ti-scan"></i> Verify citizen</button>
   </div>
 
   <!-- Records panel -->
@@ -85,11 +97,40 @@
       <label class="btn" style="cursor:pointer"><i class="ti ti-paperclip"></i> Choose file
         <input type="file" id="doc-input" style="display:none" onchange="document.getElementById('upload-btn').disabled=!this.files.length">
       </label>
-      <span id="doc-filename" style="font-size:13px;color:var(--muted)"></span>
       <button class="btn primary sm" id="upload-btn" onclick="uploadDoc()" disabled style="margin-left:auto"><i class="ti ti-upload"></i> Upload</button>
     </div>
-    <p style="font-size:12px;color:var(--muted);margin-bottom:14px">Supported: PDF, Word, Excel, images, TXT · Max 10MB</p>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:14px">PDF, Word, Excel, images, TXT · Max 10MB</p>
     <div id="user-docs"></div>
+  </div>
+
+  <!-- Scanner panel -->
+  <div id="user-scanner-panel" class="user-body" style="display:none">
+    <div style="max-width:480px;margin:0 auto">
+      <p style="font-size:13px;color:var(--muted);margin-bottom:16px">Point the camera at a citizen's barcode to verify their registration.</p>
+
+      <div id="scanner-box" style="display:none">
+        <div id="scanner-viewport" style="position:relative;border-radius:var(--radius);overflow:hidden;border:2px solid var(--border);background:#000;aspect-ratio:4/3">
+          <!-- QuaggaJS injects video here -->
+          <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:10">
+            <div style="width:80%;height:2px;background:rgba(255,80,80,.7);box-shadow:0 0 8px rgba(255,80,80,.5)"></div>
+          </div>
+        </div>
+        <button class="btn ghost sm" style="margin-top:10px;width:100%;justify-content:center" onclick="stopScanner()"><i class="ti ti-x"></i> Stop camera</button>
+      </div>
+
+      <div id="scanner-idle" style="text-align:center;padding:32px 0">
+        <i class="ti ti-scan" style="font-size:48px;color:var(--muted);display:block;margin-bottom:16px"></i>
+        <button class="btn primary" onclick="startScanner()"><i class="ti ti-camera"></i> Start camera scan</button>
+        <div style="margin:16px 0;color:var(--muted);font-size:13px">— or —</div>
+        <div style="display:flex;gap:8px">
+          <input id="manual-code" class="form-control" placeholder="Paste barcode value manually…" style="flex:1;padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px">
+          <button class="btn primary" onclick="verifyManual()"><i class="ti ti-search"></i> Verify</button>
+        </div>
+      </div>
+
+      <!-- Result -->
+      <div id="scan-result" style="display:none;margin-top:16px"></div>
+    </div>
   </div>
 </div>
 

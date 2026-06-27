@@ -2,6 +2,7 @@
 const COLORS=[{bg:'#E6F1FB',txt:'#0C447C'},{bg:'#E1F5EE',txt:'#085041'},{bg:'#FAEEDA',txt:'#633806'},{bg:'#FBEAF0',txt:'#72243E'},{bg:'#EEEDFE',txt:'#3C3489'},{bg:'#FAECE7',txt:'#712B13'},{bg:'#EAF3DE',txt:'#27500A'},{bg:'#F1EFE8',txt:'#444441'}];
 const FTYPES=[{v:'text',l:'Text'},{v:'number',l:'Number'},{v:'boolean',l:'Yes/No'},{v:'date',l:'Date'},{v:'email',l:'Email'}];
 let currentUser=null,currentNation=null,editingAccUserId=null,editingRecordId=null,userRecords=[],userDocs=[];
+let scannerRunning=false;
 
 function esc(s){return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
 function getColor(i){return COLORS[(i??0)%8]}
@@ -50,12 +51,25 @@ function startSession(user,nation){
   else{
     document.getElementById('user-nation-name').textContent=nation?.name||'My Collection';
     document.getElementById('user-info-pill').innerHTML=`<i class="ti ti-user" style="font-size:13px"></i>${esc(user.name)}`;
+    // Show join link
+    if(nation?.join_token){
+      const url=`${location.origin}/join/${nation.join_token}`;
+      document.getElementById('join-link-url').textContent=url;
+      document.getElementById('join-link-banner').style.display='flex';
+    }
     showScreen('screen-user');
     userTab('records',document.querySelector('.user-tab'));
   }
 }
 
+async function copyJoinLink(){
+  const url=document.getElementById('join-link-url').textContent;
+  try{await navigator.clipboard.writeText(url);showToast('Link copied ✓')}
+  catch{showToast('Copy failed','err')}
+}
+
 async function doLogout(){
+  stopScanner();
   await api('POST','/auth/logout');
   currentUser=null;currentNation=null;
   document.getElementById('login-email').value='';
@@ -72,7 +86,6 @@ function adminTab(tab,el){
   document.getElementById('tab-'+tab).classList.add('active');
   renderAdmin(tab);
 }
-
 async function renderAdmin(tab){
   if(tab==='overview') await renderOverview();
   else if(tab==='nations') await renderNations();
@@ -84,12 +97,12 @@ async function renderOverview(){
   panel.innerHTML='<div class="empty"><i class="ti ti-loader-2"></i><p>Loading…</p></div>';
   const{nations,users,records,citizens}=await api('GET','/admin/stats');
   panel.innerHTML=`
-    <div class="page-header"><div><div class="page-title">Overview</div><div class="page-sub">Global stats across all micronations</div></div></div>
+    <div class="page-header"><div><div class="page-title">Overview</div><div class="page-sub">Global stats</div></div></div>
     <div class="stat-grid">
       <div class="stat-card"><div class="stat-val">${nations}</div><div class="stat-lbl">Nations</div></div>
       <div class="stat-card"><div class="stat-val">${users}</div><div class="stat-lbl">Accounts</div></div>
       <div class="stat-card"><div class="stat-val">${records}</div><div class="stat-lbl">Total records</div></div>
-      <div class="stat-card"><div class="stat-val">${citizens}</div><div class="stat-lbl">Citizens registered</div></div>
+      <div class="stat-card"><div class="stat-val">${citizens}</div><div class="stat-lbl">Citizens</div></div>
     </div>`;
 }
 
@@ -98,7 +111,7 @@ async function renderNations(){
   panel.innerHTML='<div class="empty"><i class="ti ti-loader-2"></i><p>Loading…</p></div>';
   const nations=await api('GET','/admin/nations');
   let html=`<div class="page-header"><div><div class="page-title">Nations</div><div class="page-sub">Join links and citizen counts</div></div></div>`;
-  if(!nations.length){html+='<div class="empty"><i class="ti ti-map"></i><p>No nations yet.</p></div>';}
+  if(!nations.length) html+='<div class="empty"><i class="ti ti-map"></i><p>No nations yet.</p></div>';
   else nations.forEach(n=>{
     const c=getColor(n.color_idx);
     const joinUrl=n.join_token?`${location.origin}/join/${n.join_token}`:'';
@@ -107,9 +120,9 @@ async function renderNations(){
       <div class="record-body">
         <div class="record-title">${esc(n.name)}</div>
         <div class="record-meta">${n.total} records · ${n.citizens} citizens</div>
-        ${joinUrl?`<div class="join-url" style="margin-top:6px;font-size:11px">${esc(joinUrl)}</div>`:''}
+        ${joinUrl?`<div class="join-url" style="margin-top:4px;font-size:11px;font-family:monospace">${esc(joinUrl)}</div>`:''}
       </div>
-      ${joinUrl?`<button class="btn sm" onclick="copyLink('${esc(joinUrl)}',this)"><i class="ti ti-copy"></i> Copy link</button>
+      ${joinUrl?`<button class="btn sm" onclick="copyLink('${esc(joinUrl)}',this)"><i class="ti ti-copy"></i> Copy</button>
       <button class="btn icon sm" onclick="regenToken('${n.id}')" title="Regenerate link"><i class="ti ti-refresh"></i></button>`:''}
     </div>`;
   });
@@ -120,9 +133,8 @@ async function copyLink(url,btn){
   try{await navigator.clipboard.writeText(url);const o=btn.innerHTML;btn.innerHTML='<i class="ti ti-check"></i> Copied!';setTimeout(()=>btn.innerHTML=o,2000)}
   catch{showToast('Copy failed','err')}
 }
-
 async function regenToken(nationId){
-  if(!confirm('Invalidate the current link and generate a new one?')) return;
+  if(!confirm('Invalidate current link and generate a new one?')) return;
   await api('POST','/admin/nations/'+nationId+'/regen-token');
   showToast('New link generated');renderNations();
 }
@@ -135,12 +147,11 @@ async function renderAccounts(){
     <div><div class="page-title">Accounts</div><div class="page-sub">Manage user access</div></div>
     <button class="btn primary" onclick="openNewAccount()"><i class="ti ti-user-plus"></i> Create account</button>
   </div>`;
-  if(!users.length) html+='<div class="empty"><i class="ti ti-users"></i><p>No accounts yet</p><button class="btn primary" onclick="openNewAccount()"><i class="ti ti-user-plus"></i> Create first</button></div>';
+  if(!users.length) html+='<div class="empty"><i class="ti ti-users"></i><p>No accounts yet</p><button class="btn primary" onclick="openNewAccount()">Create first</button></div>';
   else users.forEach(u=>{
     const c=getColor(u.nation?.color_idx);
-    const init=(u.name||u.email)[0].toUpperCase();
     html+=`<div class="record-row">
-      <div class="record-avatar" style="background:${c.bg};color:${c.txt}">${init}</div>
+      <div class="record-avatar" style="background:${c.bg};color:${c.txt}">${(u.name||u.email)[0].toUpperCase()}</div>
       <div class="record-body"><div class="record-title">${esc(u.name)}</div><div class="record-meta">${esc(u.email)} · ${esc(u.nation?.name||'No nation')}</div></div>
       <div class="record-actions" style="opacity:1"><button class="btn sm" onclick="openEditAccount('${u.id}')"><i class="ti ti-edit"></i> Edit</button></div>
     </div>`;
@@ -161,7 +172,6 @@ function openNewAccount(){
   openModal('modal-account');
   setTimeout(()=>document.getElementById('acc-name').focus(),50);
 }
-
 async function openEditAccount(userId){
   editingAccUserId=userId;
   document.getElementById('modal-acc-title').textContent='Edit account';
@@ -178,15 +188,13 @@ async function openEditAccount(userId){
   (u.nation?.fields||[]).forEach(f=>addAccField(f.name,f.type));
   openModal('modal-account');
 }
-
 function addAccField(name='',type='text'){
   const row=document.createElement('div');row.className='field-row';
   row.innerHTML=`<input placeholder="Field name" value="${esc(name)}">
     <select>${FTYPES.map(t=>`<option value="${t.v}"${t.v===type?' selected':''}>${t.l}</option>`).join('')}</select>
-    <button class="btn icon" onclick="this.closest('.field-row').remove()" aria-label="Remove"><i class="ti ti-x"></i></button>`;
+    <button class="btn icon" onclick="this.closest('.field-row').remove()"><i class="ti ti-x"></i></button>`;
   document.getElementById('acc-fields-list').appendChild(row);
 }
-
 async function saveAccount(){
   const name=document.getElementById('acc-name').value.trim();
   const email=document.getElementById('acc-email').value.trim().toLowerCase();
@@ -196,7 +204,7 @@ async function saveAccount(){
   const rows=[...document.querySelectorAll('#acc-fields-list .field-row')];
   const fields=rows.map(r=>({name:r.querySelector('input').value.trim(),type:r.querySelector('select').value})).filter(f=>f.name);
   if(!name||!email||!nationName||!fields.length){err.textContent='Fill in all fields and add at least one column';return}
-  if(!editingAccUserId&&!pass){err.textContent='Password is required for new accounts';return}
+  if(!editingAccUserId&&!pass){err.textContent='Password is required';return}
   try{
     if(editingAccUserId) await api('PUT','/admin/users/'+editingAccUserId,{name,password:pass||undefined,nationName,fields});
     else await api('POST','/admin/users',{name,email,password:pass,nationName,fields});
@@ -204,7 +212,6 @@ async function saveAccount(){
     closeModal('modal-account');showToast(editingAccUserId?'Account updated ✓':'Account created ✓');renderAccounts();
   }catch(e){err.textContent=e.message}
 }
-
 async function deleteAccount(){
   if(!confirm('Delete this account, its nation, and all records?')) return;
   try{
@@ -220,8 +227,10 @@ function userTab(tab,el){
   el?.classList.add('active');
   document.getElementById('user-records-panel').style.display=tab==='records'?'block':'none';
   document.getElementById('user-docs-panel').style.display=tab==='docs'?'block':'none';
+  document.getElementById('user-scanner-panel').style.display=tab==='scanner'?'block':'none';
+  if(tab!=='scanner') stopScanner();
   if(tab==='records') loadAndRenderRecords();
-  else loadAndRenderDocs();
+  else if(tab==='docs') loadAndRenderDocs();
 }
 
 // ── USER RECORDS ──────────────────────────────────
@@ -229,7 +238,6 @@ async function loadAndRenderRecords(){
   try{userRecords=await api('GET','/records');renderUserRecords()}
   catch(e){document.getElementById('user-records').innerHTML=`<div class="empty"><i class="ti ti-alert-circle"></i><p>${esc(e.message)}</p></div>`}
 }
-
 function renderUserRecords(){
   const q=document.getElementById('user-search').value.toLowerCase();
   let recs=userRecords;
@@ -247,16 +255,19 @@ function renderUserRecords(){
     const initials=title.split(' ').slice(0,2).map(w=>w[0]||'').join('').toUpperCase()||'?';
     const meta=fields.slice(1,3).map(f=>{const v=data[f.name];return v!=null&&v!==''?`${esc(f.name)}: ${esc(v)}`:''}).filter(Boolean).join(' · ');
     const isCitizen=r.source==='citizen';
-    const citizenBadge=isCitizen&&r.citizen_number?`<span class="badge-citizen">#${String(r.citizen_number).padStart(4,'0')}</span>`:'';
+    // Only show citizen number, never date
+    const badge=isCitizen&&r.citizen_number
+      ?`<span class="badge-citizen">#${String(r.citizen_number).padStart(4,'0')}</span>`
+      :isCitizen?'<span class="badge-citizen">citizen</span>':'';
     return`<div class="record-row" onclick="openEditRecord('${r.id}')">
       <div class="record-avatar" style="background:${c.bg};color:${c.txt}">${initials}</div>
       <div class="record-body">
-        <div class="record-title">${esc(title)} ${citizenBadge}${isCitizen&&!r.citizen_number?'<span class="badge-citizen">citizen</span>':''}</div>
-        <div class="record-meta">${meta||fmtDate(r.created_at)}</div>
+        <div class="record-title">${esc(title)} ${badge}</div>
+        <div class="record-meta">${meta||'&nbsp;'}</div>
       </div>
       <div class="record-actions">
-        <button class="btn icon sm" onclick="event.stopPropagation();openEditRecord('${r.id}')" aria-label="Edit"><i class="ti ti-edit"></i></button>
-        <button class="btn icon sm danger" onclick="event.stopPropagation();quickDelete('${r.id}')" aria-label="Delete"><i class="ti ti-trash"></i></button>
+        <button class="btn icon sm" onclick="event.stopPropagation();openEditRecord('${r.id}')"><i class="ti ti-edit"></i></button>
+        <button class="btn icon sm danger" onclick="event.stopPropagation();quickDelete('${r.id}')"><i class="ti ti-trash"></i></button>
       </div>
     </div>`;
   }).join('');
@@ -317,71 +328,143 @@ async function deleteRecord(){
   try{
     await api('DELETE','/records/'+editingRecordId);
     userRecords=userRecords.filter(r=>r.id!==editingRecordId);
-    closeModal('modal-record');showToast('Record deleted');renderUserRecords();
+    closeModal('modal-record');showToast('Deleted');renderUserRecords();
   }catch(e){alert(e.message)}
 }
 async function quickDelete(id){
-  if(!confirm('Delete this record?')) return;
-  try{
-    await api('DELETE','/records/'+id);
-    userRecords=userRecords.filter(r=>r.id!==id);
-    showToast('Record deleted');renderUserRecords();
-  }catch(e){alert(e.message)}
+  if(!confirm('Delete?')) return;
+  try{await api('DELETE','/records/'+id);userRecords=userRecords.filter(r=>r.id!==id);showToast('Deleted');renderUserRecords()}
+  catch(e){alert(e.message)}
 }
 
 // ── DOCUMENTS ─────────────────────────────────────
 async function loadAndRenderDocs(){
-  try{
-    const res=await fetch('/api/documents',{credentials:'same-origin'});
-    userDocs=await res.json();renderDocs();
-  }catch(e){document.getElementById('user-docs').innerHTML=`<div class="empty"><i class="ti ti-alert-circle"></i><p>${esc(e.message)}</p></div>`}
+  try{const res=await fetch('/api/documents',{credentials:'same-origin'});userDocs=await res.json();renderDocs()}
+  catch(e){document.getElementById('user-docs').innerHTML=`<div class="empty"><i class="ti ti-alert-circle"></i><p>${esc(e.message)}</p></div>`}
 }
-
 function renderDocs(){
   const container=document.getElementById('user-docs');
-  if(!userDocs.length){
-    container.innerHTML='<div class="empty"><i class="ti ti-file-off"></i><p>No documents uploaded yet</p></div>';return;
-  }
+  if(!userDocs.length){container.innerHTML='<div class="empty"><i class="ti ti-file-off"></i><p>No documents yet</p></div>';return}
   const iconFor=m=>m?.includes('pdf')?'ti-file-type-pdf':m?.includes('image')?'ti-photo':m?.includes('word')||m?.includes('document')?'ti-file-type-doc':m?.includes('sheet')||m?.includes('excel')?'ti-file-type-xls':'ti-file';
   container.innerHTML=userDocs.map(d=>`
     <div class="record-row">
-      <div class="record-avatar" style="background:var(--bg);color:var(--text2);font-size:18px">
-        <i class="ti ${iconFor(d.mimetype)}" aria-hidden="true"></i>
-      </div>
-      <div class="record-body">
-        <div class="record-title">${esc(d.original_name)}</div>
-        <div class="record-meta">${fmtSize(d.size)} · ${fmtDate(d.created_at)}</div>
-      </div>
+      <div class="record-avatar" style="background:var(--bg);color:var(--text2);font-size:18px"><i class="ti ${iconFor(d.mimetype)}"></i></div>
+      <div class="record-body"><div class="record-title">${esc(d.original_name)}</div><div class="record-meta">${fmtSize(d.size)} · ${fmtDate(d.created_at)}</div></div>
       <div class="record-actions" style="opacity:1;gap:6px">
         <a href="/api/documents/${d.id}/download" class="btn sm"><i class="ti ti-download"></i> Download</a>
-        <button class="btn icon sm danger" onclick="deleteDoc('${d.id}')" aria-label="Delete"><i class="ti ti-trash"></i></button>
+        <button class="btn icon sm danger" onclick="deleteDoc('${d.id}')"><i class="ti ti-trash"></i></button>
       </div>
     </div>`).join('');
 }
-
 async function uploadDoc(){
   const input=document.getElementById('doc-input');
   if(!input.files.length) return;
-  const file=input.files[0];
-  const form=new FormData();form.append('file',file);
+  const form=new FormData();form.append('file',input.files[0]);
   const btn=document.getElementById('upload-btn');
   btn.disabled=true;btn.innerHTML='<i class="ti ti-loader-2"></i> Uploading…';
   try{
     const res=await fetch('/api/documents',{method:'POST',body:form,credentials:'same-origin'});
     const data=await res.json();
     if(!res.ok) throw new Error(data.error);
-    showToast('Document uploaded ✓');input.value='';
+    showToast('Uploaded ✓');input.value='';btn.disabled=true;
     await loadAndRenderDocs();
   }catch(e){showToast(e.message,'err')}
-  finally{btn.disabled=false;btn.innerHTML='<i class="ti ti-upload"></i> Upload'}
+  finally{btn.innerHTML='<i class="ti ti-upload"></i> Upload'}
 }
-
 async function deleteDoc(id){
   if(!confirm('Delete this document?')) return;
+  try{await api('DELETE','/documents/'+id);userDocs=userDocs.filter(d=>d.id!==id);showToast('Deleted');renderDocs()}
+  catch(e){alert(e.message)}
+}
+
+// ── SCANNER ───────────────────────────────────────
+function startScanner(){
+  document.getElementById('scanner-idle').style.display='none';
+  document.getElementById('scanner-box').style.display='block';
+  document.getElementById('scan-result').style.display='none';
+
+  Quagga.init({
+    inputStream:{
+      name:'Live',
+      type:'LiveStream',
+      target:document.getElementById('scanner-viewport'),
+      constraints:{facingMode:'environment',width:640,height:480}
+    },
+    decoder:{readers:['code_128_reader']},
+    locate:true,
+  }, err=>{
+    if(err){showToast('Camera error: '+err.message,'err');stopScanner();return}
+    Quagga.start();
+    scannerRunning=true;
+  });
+
+  Quagga.onDetected(result=>{
+    const code=result.codeResult.code;
+    if(code){
+      stopScanner();
+      verifyCitizen(code);
+    }
+  });
+}
+
+function stopScanner(){
+  if(scannerRunning){
+    try{Quagga.stop()}catch(e){}
+    scannerRunning=false;
+  }
+  const box=document.getElementById('scanner-box');
+  const idle=document.getElementById('scanner-idle');
+  if(box) box.style.display='none';
+  if(idle) idle.style.display='block';
+}
+
+function verifyManual(){
+  const code=document.getElementById('manual-code').value.trim();
+  if(!code){showToast('Enter a code first','err');return}
+  verifyCitizen(code);
+}
+
+async function verifyCitizen(code){
+  const result=document.getElementById('scan-result');
+  result.style.display='block';
+  result.innerHTML='<div style="padding:16px;text-align:center;color:var(--muted)"><i class="ti ti-loader-2"></i> Verifying…</div>';
   try{
-    await api('DELETE','/documents/'+id);
-    userDocs=userDocs.filter(d=>d.id!==id);showToast('Document deleted');renderDocs();
-  }catch(e){alert(e.message)}
+    const data=await api('GET','/records/verify/'+encodeURIComponent(code));
+    if(data.valid){
+      const fields=Object.entries(data.data||{}).slice(0,4);
+      result.innerHTML=`
+        <div style="border:2px solid #2B7A4B;border-radius:var(--radius);padding:20px;background:#F0FBF4">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+            <i class="ti ti-circle-check-filled" style="font-size:28px;color:#2B7A4B"></i>
+            <div>
+              <div style="font-weight:600;font-size:15px;color:#1A4731">✓ Valid citizen</div>
+              <div style="font-size:12px;color:#2B7A4B">Citizen #${String(data.citizenNumber||'?').padStart(4,'0')}</div>
+            </div>
+          </div>
+          ${fields.map(([k,v])=>`<div style="display:flex;gap:8px;font-size:13px;margin-bottom:4px"><span style="color:#2B7A4B;font-weight:500;min-width:80px">${esc(k)}:</span><span>${esc(String(v))}</span></div>`).join('')}
+        </div>`;
+    } else {
+      result.innerHTML=`
+        <div style="border:2px solid var(--danger-border);border-radius:var(--radius);padding:20px;background:var(--danger-bg)">
+          <div style="display:flex;align-items:center;gap:10px">
+            <i class="ti ti-circle-x-filled" style="font-size:28px;color:var(--danger)"></i>
+            <div>
+              <div style="font-weight:600;font-size:15px;color:var(--danger)">✗ Invalid</div>
+              <div style="font-size:13px;color:var(--danger)">${esc(data.message)}</div>
+            </div>
+          </div>
+        </div>`;
+    }
+  }catch(e){
+    result.innerHTML=`<div style="border:2px solid var(--danger-border);border-radius:var(--radius);padding:20px;background:var(--danger-bg);color:var(--danger)"><i class="ti ti-alert-circle"></i> Error: ${esc(e.message)}</div>`;
+  }
+  // Button to scan again
+  result.innerHTML+=`<button class="btn ghost sm" style="margin-top:10px;width:100%;justify-content:center" onclick="resetScanner()"><i class="ti ti-refresh"></i> Scan another</button>`;
+}
+
+function resetScanner(){
+  document.getElementById('scan-result').style.display='none';
+  document.getElementById('manual-code').value='';
 }
 
 // ── MODALS ────────────────────────────────────────

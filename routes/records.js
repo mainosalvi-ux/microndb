@@ -61,3 +61,20 @@ router.delete('/:id', requireAuth, async (req, res) => {
 });
 
 module.exports = router;
+
+// GET /api/records/verify/:id — verify a citizen barcode
+router.get('/verify/:id', requireAuth, async (req, res) => {
+  try {
+    const { rows: [user] } = await query('SELECT nation_id FROM users WHERE id = $1', [req.session.userId]);
+    const { rows: [record] } = await query('SELECT * FROM records WHERE id = $1', [req.params.id]);
+    if (!record) return res.json({ valid: false, message: 'No record found for this code.' });
+    if (record.nation_id !== user?.nation_id) return res.json({ valid: false, message: 'This citizen belongs to a different nation.' });
+    if (record.source !== 'citizen') return res.json({ valid: false, message: 'This code is not a citizen registration.' });
+    res.json({
+      valid: true,
+      citizenNumber: record.citizen_number,
+      joinedAt: record.joined_at,
+      data: record.data,
+    });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
