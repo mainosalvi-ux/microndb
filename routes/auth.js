@@ -39,7 +39,7 @@ async function seedAdmin() {
   }
 }
 
-// Ruta de inicio de sesión (Login) — TRUCO DE COMPATIBILIDAD FORZADA PARA EL FRONTEND
+// Ruta de inicio de sesión (Login)
 router.post('/login', async (req, res) => {
   const { email, password } = req.body;
   try {
@@ -65,11 +65,8 @@ router.post('/login', async (req, res) => {
       if (nationRes.rows.length > 0) {
         nation = nationRes.rows[0];
         
-        // TRUCO EXCLUSIVO: Si PostgreSQL nos da un objeto, lo transformamos a un String de texto.
-        // Esto evita que el JSON.parse() del frontend explote, haciendo que los campos aparezcan mágicamente.
-        if (typeof nation.fields === 'object' && nation.fields !== null) {
-          nation.fields = JSON.stringify(nation.fields);
-        }
+        // El formateo problemático se removió de acá porque ahora lo hace de forma
+        // transparente y centralizada el interceptor de db.js antes de enviar la fila.
       }
     }
 
@@ -90,7 +87,6 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// Exportaciones explícitas de los enrutadores y middlewares
 module.exports = { 
   router, 
   seedAdmin, 
