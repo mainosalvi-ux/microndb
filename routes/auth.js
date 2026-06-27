@@ -39,7 +39,7 @@ async function seedAdmin() {
   }
 }
 
-// Ruta de inicio de sesión (Login) — CORREGIDA PARA FORMATEAR JSON EN FRONTEND
+// Ruta de inicio de sesión (Login) — TRUCO DE COMPATIBILIDAD FORZADA PARA EL FRONTEND
 router.post('/login', async (req, res) => {
   const { email, password } = req.body;
   try {
@@ -59,18 +59,16 @@ router.post('/login', async (req, res) => {
     req.session.role = user.role;
     req.session.nationId = user.nation_id;
 
-    // Buscamos los datos de la nación para pasárselos al frontend
     let nation = null;
     if (user.nation_id) {
       const nationRes = await pool.query('SELECT * FROM nations WHERE id = $1', [user.nation_id]);
       if (nationRes.rows.length > 0) {
         nation = nationRes.rows[0];
         
-        // PARCHE CRUCIAL: Si PostgreSQL ya devuelve los campos como objeto, 
-        // los convertimos a texto si el frontend hace un JSON.parse, o viceversa,
-        // asegurando compatibilidad absoluta con lo que pida tu SPA.
-        if (typeof nation.fields === 'string') {
-          try { nation.fields = JSON.parse(nation.fields); } catch(e){}
+        // TRUCO EXCLUSIVO: Si PostgreSQL nos da un objeto, lo transformamos a un String de texto.
+        // Esto evita que el JSON.parse() del frontend explote, haciendo que los campos aparezcan mágicamente.
+        if (typeof nation.fields === 'object' && nation.fields !== null) {
+          nation.fields = JSON.stringify(nation.fields);
         }
       }
     }
