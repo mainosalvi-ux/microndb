@@ -135,7 +135,13 @@ function render(){
   document.getElementById('join-content').style.display='block';
 }
 
+let submitting = false;
+
 async function submitForm(){
+  // Prevent double submit
+  if(submitting) return;
+  submitting = true;
+
   const fields=(nation?.fields||[]).filter(f=>!BLOCKED.includes(f.name.toLowerCase().trim()));
   const data={};
   for(const f of fields){
@@ -147,36 +153,54 @@ async function submitForm(){
   const err=document.getElementById('join-err');
   err.textContent='';
   const btn=document.getElementById('join-btn');
-  btn.disabled=true;btn.innerHTML='<i class="ti ti-loader-2"></i> Submitting…';
+  btn.disabled=true;
+  btn.innerHTML='<i class="ti ti-loader-2"></i> Submitting…';
+
+  let result;
   try{
     const res=await fetch('/api/join/'+token,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({data})});
-    const result=await res.json();
-    if(!res.ok){err.textContent=result.error;btn.disabled=false;btn.innerHTML='<i class="ti ti-user-check"></i> Register as citizen';return}
+    result=await res.json();
+    if(!res.ok){
+      err.textContent=result.error||'Server error';
+      btn.disabled=false;
+      btn.innerHTML='<i class="ti ti-user-check"></i> Register as citizen';
+      submitting=false;
+      return;
+    }
+  }catch(e){
+    err.textContent='Network error. Please try again.';
+    btn.disabled=false;
+    btn.innerHTML='<i class="ti ti-user-check"></i> Register as citizen';
+    submitting=false;
+    return;
+  }
 
-    localStorage.setItem(STORAGE_KEY,'1');
-    citizenId=result.id;
-    const numStr=String(result.citizenNumber||'0').padStart(4,'0');
+  // Success — mark as done immediately to prevent re-entry
+  localStorage.setItem(STORAGE_KEY,'1');
+  citizenId=result.id;
+  const numStr=String(result.citizenNumber||'0').padStart(4,'0');
 
-    // Set success nation icon
-    const c=COLORS[(nation.color_idx||0)%8];
-    const si=document.getElementById('success-nation-icon');
-    si.style.background=c.bg;si.style.color=c.txt;
-    si.textContent=nation.name[0].toUpperCase();
-    document.getElementById('success-nation-name').textContent=nation.name;
-    document.getElementById('citizen-num').textContent='#'+numStr;
+  // Set success screen
+  const c=COLORS[(nation.color_idx||0)%8];
+  const si=document.getElementById('success-nation-icon');
+  si.style.background=c.bg;si.style.color=c.txt;
+  si.textContent=nation.name[0].toUpperCase();
+  document.getElementById('success-nation-name').textContent=nation.name;
+  document.getElementById('citizen-num').textContent='#'+numStr;
 
-    // Generate barcode from record ID
-    QRCode.toCanvas(document.getElementById('qrcode'), result.id, {
-      width: 180,
+  // Switch screens first
+  document.getElementById('join-content').style.display='none';
+  document.getElementById('success-content').style.display='block';
+
+  // Generate QR after screen is visible (canvas needs to be in DOM)
+  try{
+    await QRCode.toCanvas(document.getElementById('qrcode'), result.id, {
+      width: 200,
       margin: 2,
       color: { dark: '#1A1A19', light: '#ffffff' }
     });
-
-    document.getElementById('join-content').style.display='none';
-    document.getElementById('success-content').style.display='block';
-  }catch(e){
-    err.textContent='Connection error. Please try again.';
-    btn.disabled=false;btn.innerHTML='<i class="ti ti-user-check"></i> Register as citizen';
+  }catch(qrErr){
+    console.error('QR error:', qrErr);
   }
 }
 
