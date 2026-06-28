@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
   <style>
     *{box-sizing:border-box;margin:0;padding:0;font-family:'Inter',system-ui,sans-serif}
     body{background:#F7F7F6;display:flex;align-items:flex-start;justify-content:center;padding:40px 16px;min-height:100vh}
@@ -84,7 +85,7 @@
           <div class="citizen-lbl">Citizen number</div>
           <div class="citizen-num" id="citizen-num">#0000</div>
           <div class="qr-container">
-            <img id="qr-img" width="180" height="180" alt="QR Code">
+            <div id="qr-container" style="display:flex;justify-content:center"></div>
           </div>
           <div class="qr-hint">Screenshot or save this QR — it proves your citizenship</div>
           <button class="btn-download" onclick="saveQR()">
@@ -203,10 +204,13 @@ async function doSubmit(){
     // Show success first
     show('s-success');
 
-    // Generate QR using Google Charts API — no library needed, always works
-    const qrData = encodeURIComponent(result.id);
-    document.getElementById('qr-img').src =
-      `https://chart.googleapis.com/chart?cht=qr&chs=200x200&chl=${qrData}&choe=UTF-8`;
+    // Generate QR with qrcode.js
+    const canvas = document.createElement('canvas');
+    document.getElementById('qr-container').innerHTML = '';
+    document.getElementById('qr-container').appendChild(canvas);
+    QRCode.toCanvas(canvas, result.id, {width:180,margin:2,color:{dark:'#1A1A19',light:'#ffffff'}}, function(err){
+      if(err) console.error('QR error:', err);
+    });
 
   }catch(e){
     err.textContent = 'Network error: ' + e.message;
@@ -217,11 +221,11 @@ async function doSubmit(){
 }
 
 function saveQR(){
-  const img = document.getElementById('qr-img');
+  const canvas = document.querySelector('#qr-container canvas');
+  if(!canvas){ alert('QR not generated yet'); return; }
   const a = document.createElement('a');
-  a.href = img.src;
   a.download = 'citizen-qr.png';
-  a.target = '_blank';
+  a.href = canvas.toDataURL('image/png');
   a.click();
 }
 </script>
