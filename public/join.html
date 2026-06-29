@@ -6,39 +6,32 @@
   <title>Join — Micronation DB</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/css/style.css">
-  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
   <style>
     *{box-sizing:border-box;margin:0;padding:0;font-family:'Inter',system-ui,sans-serif}
     body{background:#F7F7F6;display:flex;align-items:flex-start;justify-content:center;padding:40px 16px;min-height:100vh}
     .wrap{width:100%;max-width:460px}
     .nation-banner{display:flex;align-items:center;gap:14px;margin-bottom:24px}
     .nation-icon{width:52px;height:52px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;flex-shrink:0}
-    .nation-banner h1{font-size:20px;font-weight:700}
-    .nation-banner p{font-size:13px;color:#9B9B98;margin-top:2px}
+    h1{font-size:20px;font-weight:700}
+    .sub{font-size:13px;color:#9B9B98;margin-top:2px}
     .card{background:#fff;border:1px solid #E4E4E3;border-radius:12px;padding:24px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
     .form-group{margin-bottom:14px}
     .form-group label{display:block;font-size:12px;color:#5C5C5A;margin-bottom:5px;font-weight:500}
     .form-group input,.form-group select{width:100%;padding:9px 12px;border:1px solid #E4E4E3;border-radius:8px;font-size:14px;color:#1A1A19;outline:none}
     .form-group input:focus,.form-group select:focus{border-color:#1A1A19}
-    .btn-primary{width:100%;padding:10px;background:#1A1A19;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:500;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;margin-top:6px}
-    .btn-primary:hover{opacity:.85}
-    .btn-primary:disabled{opacity:.5;cursor:not-allowed}
+    .btn{width:100%;padding:10px;background:#1A1A19;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:500;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;margin-top:6px}
+    .btn:hover{opacity:.85}
+    .btn:disabled{opacity:.5;cursor:not-allowed}
+    .btn-outline{width:auto;padding:7px 14px;background:#fff;color:#5C5C5A;border:1px solid #E4E4E3;border-radius:8px;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;gap:5px}
+    .btn-outline:hover{background:#F7F7F6}
     .form-error{font-size:12px;color:#A32D2D;margin-top:6px;min-height:16px}
-    .result-box{text-align:center;padding:8px 0 16px}
-    .result-icon{font-size:48px;margin-bottom:12px;display:block}
-    .result-box h2{font-size:20px;font-weight:600;margin-bottom:6px}
-    .result-box p{font-size:13px;color:#9B9B98}
     .citizen-card{background:#F7F7F6;border:1px solid #E4E4E3;border-radius:10px;padding:20px;margin-top:18px;text-align:center}
     .citizen-num{font-size:30px;font-weight:700;margin-bottom:4px}
     .citizen-lbl{font-size:11px;color:#9B9B98;text-transform:uppercase;letter-spacing:.05em;margin-bottom:16px}
-    .qr-container{background:#fff;border-radius:8px;padding:12px;display:inline-block;margin-bottom:10px}
-    .qr-hint{font-size:11px;color:#9B9B98;margin-bottom:10px}
-    .btn-download{display:inline-flex;align-items:center;gap:5px;padding:7px 14px;border:1px solid #E4E4E3;border-radius:8px;background:#fff;font-size:13px;cursor:pointer;color:#5C5C5A}
-    .btn-download:hover{background:#F7F7F6}
+    .qr-box{background:#fff;border-radius:8px;padding:10px;display:inline-flex;margin-bottom:10px;border:1px solid #E4E4E3}
+    .qr-box img{display:block;width:180px;height:180px}
+    .qr-hint{font-size:11px;color:#9B9B98;margin-bottom:12px}
     .hint{text-align:center;font-size:12px;color:#9B9B98;margin-top:14px}
-    .error-box{text-align:center;padding:40px 20px;color:#9B9B98}
-    .error-box i{font-size:40px;margin-bottom:12px;display:block;color:#A32D2D}
   </style>
 </head>
 <body>
@@ -52,19 +45,19 @@
     <div class="card" style="text-align:center;padding:40px 24px">
       <i class="ti ti-check" style="font-size:40px;color:#2B7A4B;display:block;margin-bottom:12px"></i>
       <h2 style="font-size:18px;font-weight:600;margin-bottom:6px">Already registered</h2>
-      <p style="font-size:13px;color:#9B9B98">You already submitted your registration from this browser.</p>
+      <p class="sub">You already submitted your registration from this browser.</p>
     </div>
   </div>
 
   <div id="s-form" style="display:none">
     <div class="nation-banner">
       <div class="nation-icon" id="nation-icon"></div>
-      <div><h1 id="nation-name"></h1><p>Citizen registration</p></div>
+      <div><h1 id="nation-name"></h1><p class="sub">Citizen registration</p></div>
     </div>
     <div class="card">
       <div id="join-form"></div>
       <div id="join-err" class="form-error"></div>
-      <button class="btn-primary" id="join-btn" onclick="doSubmit()">
+      <button class="btn" id="join-btn" onclick="doSubmit()">
         <i class="ti ti-user-check"></i> Register as citizen
       </button>
     </div>
@@ -74,76 +67,69 @@
   <div id="s-success" style="display:none">
     <div class="nation-banner">
       <div class="nation-icon" id="s-nation-icon"></div>
-      <div><h1 id="s-nation-name"></h1><p>Registration confirmed</p></div>
+      <div><h1 id="s-nation-name"></h1><p class="sub">Registration confirmed</p></div>
     </div>
-    <div class="card">
-      <div class="result-box">
-        <i class="ti ti-circle-check-filled result-icon" style="color:#2B7A4B"></i>
-        <h2>Welcome!</h2>
-        <p>Your registration has been submitted successfully.</p>
-        <div class="citizen-card">
-          <div class="citizen-lbl">Citizen number</div>
-          <div class="citizen-num" id="citizen-num">#0000</div>
-          <div class="qr-container">
-            <div id="qr-container" style="display:flex;justify-content:center"></div>
-          </div>
-          <div class="qr-hint">Screenshot or save this QR — it proves your citizenship</div>
-          <button class="btn-download" onclick="saveQR()">
-            <i class="ti ti-download" style="font-size:13px"></i> Save QR code
-          </button>
+    <div class="card" style="text-align:center">
+      <i class="ti ti-circle-check-filled" style="font-size:48px;color:#2B7A4B;display:block;margin-bottom:12px;margin-top:8px"></i>
+      <h2 style="font-size:20px;font-weight:600;margin-bottom:6px">Welcome!</h2>
+      <p class="sub" style="margin-bottom:0">Your registration was submitted successfully.</p>
+      <div class="citizen-card">
+        <div class="citizen-lbl">Citizen number</div>
+        <div class="citizen-num" id="citizen-num">#0000</div>
+        <div class="qr-box">
+          <img id="qr-img" alt="QR Code" width="180" height="180">
         </div>
+        <div class="qr-hint">Screenshot or save this QR — it proves your citizenship</div>
+        <button class="btn-outline" onclick="saveQR()">
+          <i class="ti ti-download" style="font-size:13px"></i> Save QR code
+        </button>
       </div>
     </div>
     <p class="hint">Powered by Micronation DB</p>
   </div>
 
   <div id="s-error" style="display:none">
-    <div class="card error-box">
-      <i class="ti ti-alert-circle"></i>
+    <div class="card" style="text-align:center;padding:40px 24px">
+      <i class="ti ti-alert-circle" style="font-size:40px;color:#A32D2D;display:block;margin-bottom:12px"></i>
       <h2 style="font-size:18px;font-weight:600;margin-bottom:6px">Invalid link</h2>
-      <p>This registration link doesn't exist or has expired.</p>
+      <p class="sub">This registration link doesn't exist or has expired.</p>
     </div>
   </div>
 
 </div>
-
 <script>
 const COLORS=[{bg:'#E6F1FB',txt:'#0C447C'},{bg:'#E1F5EE',txt:'#085041'},{bg:'#FAEEDA',txt:'#633806'},{bg:'#FBEAF0',txt:'#72243E'},{bg:'#EEEDFE',txt:'#3C3489'},{bg:'#FAECE7',txt:'#712B13'},{bg:'#EAF3DE',txt:'#27500A'},{bg:'#F1EFE8',txt:'#444441'}];
 const BLOCKED=['citizen number','numero de ciudadano','número de ciudadano','fecha','date','joined','join date','fecha de union','fecha de unión','member since'];
+const token=location.pathname.split('/join/')[1]?.split('/')[0];
+const SKEY='mnd_joined_'+token;
+let nation=null, submitting=false, qrSrc=null;
 
-const token = location.pathname.split('/join/')[1]?.split('/')[0];
-const SKEY = 'mnd_joined_' + token;
-let nation = null;
-let submitting = false;
+function show(id){['s-loading','s-already','s-form','s-success','s-error'].forEach(s=>document.getElementById(s).style.display=s===id?'block':'none')}
+function esc(s){return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
 
-function show(id){ ['s-loading','s-already','s-form','s-success','s-error'].forEach(s=>document.getElementById(s).style.display=s===id?'block':'none') }
-function esc(s){ return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
-
-// Check already joined
-if(localStorage.getItem(SKEY)){ show('s-already'); }
-else { loadForm(); }
+if(localStorage.getItem(SKEY)) show('s-already');
+else loadForm();
 
 async function loadForm(){
-  if(!token){ show('s-error'); return; }
+  if(!token){show('s-error');return}
   try{
-    const res = await fetch('/api/join/'+token);
-    if(!res.ok){ show('s-error'); return; }
-    nation = await res.json();
+    const res=await fetch('/api/join/'+token);
+    if(!res.ok){show('s-error');return}
+    nation=await res.json();
     renderForm();
-  }catch{ show('s-error'); }
+  }catch{show('s-error')}
 }
 
 function renderForm(){
-  const c = COLORS[(nation.color_idx||0)%8];
-  const icon = document.getElementById('nation-icon');
-  icon.style.background = c.bg; icon.style.color = c.txt;
-  icon.textContent = nation.name[0].toUpperCase();
-  document.getElementById('nation-name').textContent = nation.name;
-  document.title = 'Join ' + nation.name;
-
-  const fields = (nation.fields||[]).filter(f=>!BLOCKED.includes(f.name.toLowerCase().trim()));
-  document.getElementById('join-form').innerHTML = fields.map(f=>{
-    let inp = '';
+  const c=COLORS[(nation.color_idx||0)%8];
+  const icon=document.getElementById('nation-icon');
+  icon.style.background=c.bg; icon.style.color=c.txt;
+  icon.textContent=nation.name[0].toUpperCase();
+  document.getElementById('nation-name').textContent=nation.name;
+  document.title='Join '+nation.name;
+  const fields=(nation.fields||[]).filter(f=>!BLOCKED.includes(f.name.toLowerCase().trim()));
+  document.getElementById('join-form').innerHTML=fields.map(f=>{
+    let inp='';
     if(f.type==='boolean') inp=`<select id="f-${esc(f.name)}"><option value="">(select)</option><option value="true">Yes</option><option value="false">No</option></select>`;
     else if(f.type==='number') inp=`<input type="number" id="f-${esc(f.name)}" placeholder="0">`;
     else if(f.type==='date') inp=`<input type="date" id="f-${esc(f.name)}">`;
@@ -151,81 +137,59 @@ function renderForm(){
     else inp=`<input type="text" id="f-${esc(f.name)}" placeholder="${esc(f.name)}">`;
     return `<div class="form-group"><label>${esc(f.name)}</label>${inp}</div>`;
   }).join('');
-
   show('s-form');
 }
 
 async function doSubmit(){
   if(submitting) return;
-  submitting = true;
-
-  const btn = document.getElementById('join-btn');
-  const err = document.getElementById('join-err');
-  btn.disabled = true;
-  btn.innerHTML = '<i class="ti ti-loader-2"></i> Submitting…';
-  err.textContent = '';
-
-  const fields = (nation?.fields||[]).filter(f=>!BLOCKED.includes(f.name.toLowerCase().trim()));
-  const data = {};
+  submitting=true;
+  const btn=document.getElementById('join-btn');
+  const err=document.getElementById('join-err');
+  btn.disabled=true;
+  btn.innerHTML='<i class="ti ti-loader-2"></i> Submitting…';
+  err.textContent='';
+  const fields=(nation?.fields||[]).filter(f=>!BLOCKED.includes(f.name.toLowerCase().trim()));
+  const data={};
   fields.forEach(f=>{
-    const el = document.getElementById('f-'+f.name); if(!el) return;
-    if(f.type==='number') data[f.name] = el.value===''?'':Number(el.value);
-    else if(f.type==='boolean') data[f.name] = el.value===''?null:el.value==='true';
-    else data[f.name] = el.value;
+    const el=document.getElementById('f-'+f.name); if(!el) return;
+    if(f.type==='number') data[f.name]=el.value===''?'':Number(el.value);
+    else if(f.type==='boolean') data[f.name]=el.value===''?null:el.value==='true';
+    else data[f.name]=el.value;
   });
-
   try{
-    const res = await fetch('/api/join/'+token, {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({data})
-    });
-    const result = await res.json();
-
+    const res=await fetch('/api/join/'+token,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({data})});
+    const result=await res.json();
     if(!res.ok){
-      err.textContent = result.error || 'Server error';
-      btn.disabled = false;
-      btn.innerHTML = '<i class="ti ti-user-check"></i> Register as citizen';
-      submitting = false;
+      err.textContent=result.error||'Server error';
+      btn.disabled=false;
+      btn.innerHTML='<i class="ti ti-user-check"></i> Register as citizen';
+      submitting=false;
       return;
     }
-
-    // Mark done in browser
-    localStorage.setItem(SKEY, '1');
-
-    // Fill success screen
-    const c = COLORS[(nation.color_idx||0)%8];
-    const si = document.getElementById('s-nation-icon');
-    si.style.background = c.bg; si.style.color = c.txt;
-    si.textContent = nation.name[0].toUpperCase();
-    document.getElementById('s-nation-name').textContent = nation.name;
-    document.getElementById('citizen-num').textContent = '#' + String(result.citizenNumber||0).padStart(4,'0');
-
-    // Show success first
+    localStorage.setItem(SKEY,'1');
+    const c=COLORS[(nation.color_idx||0)%8];
+    const si=document.getElementById('s-nation-icon');
+    si.style.background=c.bg; si.style.color=c.txt;
+    si.textContent=nation.name[0].toUpperCase();
+    document.getElementById('s-nation-name').textContent=nation.name;
+    document.getElementById('citizen-num').textContent='#'+String(result.citizenNumber||0).padStart(4,'0');
+    // QR comes from server as data URL — no client library needed
+    qrSrc=result.qr;
+    document.getElementById('qr-img').src=result.qr;
     show('s-success');
-
-    // Generate QR with qrcode.js
-    const canvas = document.createElement('canvas');
-    document.getElementById('qr-container').innerHTML = '';
-    document.getElementById('qr-container').appendChild(canvas);
-    QRCode.toCanvas(canvas, result.id, {width:180,margin:2,color:{dark:'#1A1A19',light:'#ffffff'}}, function(err){
-      if(err) console.error('QR error:', err);
-    });
-
   }catch(e){
-    err.textContent = 'Network error: ' + e.message;
-    btn.disabled = false;
-    btn.innerHTML = '<i class="ti ti-user-check"></i> Register as citizen';
-    submitting = false;
+    err.textContent='Network error: '+e.message;
+    btn.disabled=false;
+    btn.innerHTML='<i class="ti ti-user-check"></i> Register as citizen';
+    submitting=false;
   }
 }
 
 function saveQR(){
-  const canvas = document.querySelector('#qr-container canvas');
-  if(!canvas){ alert('QR not generated yet'); return; }
-  const a = document.createElement('a');
-  a.download = 'citizen-qr.png';
-  a.href = canvas.toDataURL('image/png');
+  if(!qrSrc){alert('QR not ready');return}
+  const a=document.createElement('a');
+  a.download='citizen-qr.png';
+  a.href=qrSrc;
   a.click();
 }
 </script>

@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
+const QRCode = require('qrcode');
 const { query } = require('../db');
 
 // GET /api/join/:token
@@ -36,7 +37,12 @@ router.post('/:token', async (req, res) => {
       [id, nation.id, JSON.stringify(data)]
     );
 
-    res.json({ ok: true, id: rec.id, citizenNumber: rec.citizen_number, joinedAt: rec.joined_at });
+    // Generate QR as data URL on the server
+    const qrDataURL = await QRCode.toDataURL(rec.id, {
+      width: 200, margin: 2,
+      color: { dark: '#1A1A19', light: '#ffffff' }
+    });
+    res.json({ ok: true, id: rec.id, citizenNumber: rec.citizen_number, joinedAt: rec.joined_at, qr: qrDataURL });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
